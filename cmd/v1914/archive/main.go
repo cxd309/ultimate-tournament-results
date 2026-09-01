@@ -44,6 +44,12 @@ func run() error {
 	}
 	fmt.Printf("heartbeat: app_version=%s season_id=%s\n", hb.AppVersion, hb.Config.LiveSeasonID)
 
+	ref, err := client.FetchReference(ctx)
+	if err != nil {
+		return fmt.Errorf("fetch reference: %w", err)
+	}
+	fmt.Printf("reference: name=%q divisions=%d pools=%d countries=%d\n", ref.Season.Name, len(ref.Series), len(ref.Pools), len(ref.Countries))
+
 	if *slug == "" {
 		*slug = strings.ToLower(hb.Config.LiveSeasonID)
 	}
@@ -74,15 +80,18 @@ func run() error {
 
 	s := store.New(sqlDB)
 
-	if err := v1914.ImportHeartbeat(ctx, s, *host, *basePath, hb); err != nil {
-		return fmt.Errorf("import heartbeat: %w", err)
+	if err := v1914.ImportTournament(ctx, s, *host, *basePath, hb, ref); err != nil {
+		return fmt.Errorf("import tournament: %w", err)
+	}
+	if err := v1914.ImportReferenceData(ctx, s, ref); err != nil {
+		return fmt.Errorf("import reference data: %w", err)
 	}
 
 	tournament, err := s.GetTournament(ctx)
 	if err != nil {
 		return fmt.Errorf("read back tournament: %w", err)
 	}
-	fmt.Printf("wrote %s: event_name=%q season_id=%s\n", *dbPath, tournament.EventName, tournament.SeasonID)
+	fmt.Printf("wrote %s: event_name=%q season_id=%s start_date=%s\n", *dbPath, tournament.EventName, tournament.SeasonID, tournament.StartDate)
 
 	return nil
 }

@@ -9,18 +9,18 @@ import (
 )
 
 type Country struct {
-	ID           int64          `json:"id"`
-	CountryExtID int64          `json:"country_ext_id"`
-	Name         string         `json:"name"`
-	Abbreviation sql.NullString `json:"abbreviation"`
-	FlagFile     sql.NullString `json:"flag_file"`
+	ID           int64  `json:"id"`
+	CountryExtID int64  `json:"country_ext_id"`
+	Name         string `json:"name"`
+	Abbreviation string `json:"abbreviation"`
+	FlagFile     string `json:"flag_file"`
 }
 
 type Division struct {
-	ID       int64          `json:"id"`
-	SeriesID int64          `json:"series_id"`
-	Name     string         `json:"name"`
-	Ordering sql.NullString `json:"ordering"`
+	ID       int64  `json:"id"`
+	SeriesID int64  `json:"series_id"`
+	Name     string `json:"name"`
+	Ordering string `json:"ordering"`
 }
 
 type Game struct {
@@ -66,12 +66,12 @@ type Player struct {
 }
 
 type Pool struct {
-	ID         int64          `json:"id"`
-	PoolID     int64          `json:"pool_id"`
-	DivisionID sql.NullInt64  `json:"division_id"`
-	Name       string         `json:"name"`
-	Ordering   sql.NullString `json:"ordering"`
-	PoolType   sql.NullInt64  `json:"pool_type"`
+	ID         int64  `json:"id"`
+	PoolID     int64  `json:"pool_id"`
+	DivisionID int64  `json:"division_id"`
+	Name       string `json:"name"`
+	Ordering   string `json:"ordering"`
+	PoolType   int64  `json:"pool_type"`
 }
 
 type SpiritCategoryScore struct {

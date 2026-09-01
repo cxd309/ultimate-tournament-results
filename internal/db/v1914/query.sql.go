@@ -35,8 +35,100 @@ func (q *Queries) GetTournament(ctx context.Context) (Tournament, error) {
 	return i, err
 }
 
+const insertCountry = `-- name: InsertCountry :one
+INSERT INTO countries (country_ext_id, name, abbreviation, flag_file)
+    VALUES (?1, ?2, ?3, ?4)
+RETURNING
+    id, country_ext_id, name, abbreviation, flag_file
+`
+
+type InsertCountryParams struct {
+	CountryExtID int64  `json:"country_ext_id"`
+	Name         string `json:"name"`
+	Abbreviation string `json:"abbreviation"`
+	FlagFile     string `json:"flag_file"`
+}
+
+func (q *Queries) InsertCountry(ctx context.Context, arg InsertCountryParams) (Country, error) {
+	row := q.db.QueryRowContext(ctx, insertCountry,
+		arg.CountryExtID,
+		arg.Name,
+		arg.Abbreviation,
+		arg.FlagFile,
+	)
+	var i Country
+	err := row.Scan(
+		&i.ID,
+		&i.CountryExtID,
+		&i.Name,
+		&i.Abbreviation,
+		&i.FlagFile,
+	)
+	return i, err
+}
+
+const insertDivision = `-- name: InsertDivision :one
+INSERT INTO divisions (series_id, name, ordering)
+    VALUES (?1, ?2, ?3)
+RETURNING
+    id, series_id, name, ordering
+`
+
+type InsertDivisionParams struct {
+	SeriesID int64  `json:"series_id"`
+	Name     string `json:"name"`
+	Ordering string `json:"ordering"`
+}
+
+func (q *Queries) InsertDivision(ctx context.Context, arg InsertDivisionParams) (Division, error) {
+	row := q.db.QueryRowContext(ctx, insertDivision, arg.SeriesID, arg.Name, arg.Ordering)
+	var i Division
+	err := row.Scan(
+		&i.ID,
+		&i.SeriesID,
+		&i.Name,
+		&i.Ordering,
+	)
+	return i, err
+}
+
+const insertPool = `-- name: InsertPool :one
+INSERT INTO pools (pool_id, division_id, name, ordering, pool_type)
+    VALUES (?1, ?2, ?3, ?4, ?5)
+RETURNING
+    id, pool_id, division_id, name, ordering, pool_type
+`
+
+type InsertPoolParams struct {
+	PoolID     int64  `json:"pool_id"`
+	DivisionID int64  `json:"division_id"`
+	Name       string `json:"name"`
+	Ordering   string `json:"ordering"`
+	PoolType   int64  `json:"pool_type"`
+}
+
+func (q *Queries) InsertPool(ctx context.Context, arg InsertPoolParams) (Pool, error) {
+	row := q.db.QueryRowContext(ctx, insertPool,
+		arg.PoolID,
+		arg.DivisionID,
+		arg.Name,
+		arg.Ordering,
+		arg.PoolType,
+	)
+	var i Pool
+	err := row.Scan(
+		&i.ID,
+		&i.PoolID,
+		&i.DivisionID,
+		&i.Name,
+		&i.Ordering,
+		&i.PoolType,
+	)
+	return i, err
+}
+
 const insertTournament = `-- name: InsertTournament :exec
-INSERT INTO tournament(event_name, host, season_id, base_path, app_version, start_date, end_date, timezone, status, archived_at)
+INSERT INTO tournament (event_name, host, season_id, base_path, app_version, start_date, end_date, timezone, status, archived_at)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
 `
 

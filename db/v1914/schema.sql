@@ -19,24 +19,24 @@ CREATE TABLE divisions (
     id integer PRIMARY KEY,
     series_id integer NOT NULL UNIQUE, -- external id
     name text NOT NULL,
-    ordering text
+    ordering text NOT NULL -- Series.ordering is a required field
 );
 
 CREATE TABLE pools (
     id integer PRIMARY KEY,
     pool_id integer NOT NULL UNIQUE, -- external id
-    division_id integer REFERENCES divisions (id),
+    division_id integer NOT NULL REFERENCES divisions (id), -- Pool.series_id is required
     name text NOT NULL,
-    ordering text,
-    pool_type integer
+    ordering text NOT NULL, -- Pool.ordering is a required field
+    pool_type integer NOT NULL -- Pool.type is a required field
 );
 
 CREATE TABLE countries (
     id integer PRIMARY KEY,
     country_ext_id integer NOT NULL UNIQUE, -- stable across events per the spec
     name text NOT NULL,
-    abbreviation text,
-    flag_file text
+    abbreviation text NOT NULL, -- Country.abbreviation is a required field
+    flag_file text NOT NULL -- Country.flagfile is a required field
 );
 
 CREATE TABLE teams (
