@@ -1,0 +1,12 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    schema: "db/v1914/schema.sql"
+    queries: "db/v1914/query.sql"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db/v1914"
+        sql_package: "database/sql"
+        emit_json_tags: true
+        emit_prepared_queries: false
