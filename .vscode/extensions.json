@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "dprint.dprint",
+    "golang.go",
+    "foxundermoon.shell-format",
+    "bradymholt.pgformatter"
+  ]
+}

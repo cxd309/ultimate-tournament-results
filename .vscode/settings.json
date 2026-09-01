@@ -1,0 +1,18 @@
+{
+  "editor.defaultFormatter": "dprint.dprint",
+  "editor.formatOnSave": true,
+  // specify per language
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "golang.go"
+  },
+  "[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.formatOnSave": true
+  },
+  "shellformat.flag": "-i 4",
+  "[sql]": {
+    "editor.defaultFormatter": "bradymholt.pgformatter",
+    "editor.formatOnSave": true
+  }
+}
