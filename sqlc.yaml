@@ -10,3 +10,13 @@ sql:
         sql_package: "database/sql"
         emit_json_tags: true
         emit_prepared_queries: false
+  - engine: "sqlite"
+    schema: "db/v1917/schema.sql"
+    queries: "db/v1917/query.sql"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db/v1917"
+        sql_package: "database/sql"
+        emit_json_tags: true
+        emit_prepared_queries: false

@@ -1,5 +1,5 @@
 # Spec versions with a cmd/ implementation -- extend this as new versions are added
-versions := "v1914"
+versions := "v1914 v1917"
 
 # Build output directory
 dist_dir := "dist"
