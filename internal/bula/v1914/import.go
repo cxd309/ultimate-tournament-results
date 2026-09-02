@@ -207,6 +207,7 @@ func importTeams(ctx context.Context, s *store.Store, ref *ReferenceResponse, de
 			Abbreviation:            team.Abbreviation,
 			FinalStanding:           &finalStanding,
 			FinalStandingCalculated: &finalStandingCalculated,
+			ClubName:                team.Club,
 		}); err != nil {
 			return fmt.Errorf("insert team %d: %w", team.TeamID, err)
 		}

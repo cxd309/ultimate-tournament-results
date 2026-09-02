@@ -20,6 +20,7 @@ type Team struct {
 	Abbreviation            string
 	FinalStanding           *int64
 	FinalStandingCalculated *int64
+	ClubName                string // bare name only; there's no club id to join on, see schema
 }
 
 func (s *Store) InsertTeam(ctx context.Context, t Team) error {
@@ -34,5 +35,6 @@ func (s *Store) InsertTeam(ctx context.Context, t Team) error {
 		Abbreviation:            convert.NullString(t.Abbreviation),
 		FinalStanding:           convert.NullInt64(t.FinalStanding),
 		FinalStandingCalculated: convert.NullInt64(t.FinalStandingCalculated),
+		ClubName:                convert.NullString(t.ClubName),
 	})
 }

@@ -11,21 +11,7 @@
 -- The exceptions are values with no other source in this archive at all
 -- e.g. final_standing override, player's games_played
 -- those are kept as reported, commented with why.
--- uo_club
-CREATE TABLE club (
-    club_id integer PRIMARY KEY, -- int(10)
-    name text, -- varchar(50)
-    contacts text,
-    city text, -- varchar(100)
-    country integer REFERENCES countries (country_id), -- int(10)
-    story text,
-    achievements text,
-    image integer, -- int(10), FK to uo_image, not modeled (not results-relevant)
-    valid integer NOT NULL DEFAULT 1, -- tinyint(4)
-    profile_image text, -- varchar(20)
-    founded integer -- int(4)
-);
-
+--
 -- uo_country
 CREATE TABLE countries (
     country_id integer PRIMARY KEY, -- int(10)
@@ -138,7 +124,6 @@ CREATE TABLE teams (
     team_id integer PRIMARY KEY, -- int(10)
     name text, -- varchar(50)
     pool integer REFERENCES pools (pool_id), -- int(10)
-    club integer REFERENCES club (club_id), -- int(10)
     rank integer, -- smallint(5); seed going into the event
     activerank integer, -- int(10)
     valid integer NOT NULL, -- tinyint(1)
@@ -149,7 +134,8 @@ CREATE TABLE teams (
     -- final_standing can be an organizer override, and *_calculated reflects
     -- bracket-resolution logic this archive doesn't model
     final_standing integer,
-    final_standing_calculated integer
+    final_standing_calculated integer,
+    club_name text -- bare club_name, not an id
 );
 
 -- uo_player
