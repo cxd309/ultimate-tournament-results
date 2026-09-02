@@ -11,32 +11,34 @@ Each tournament is archived into its own SQLite file, normalized to a schema mat
 There is no attempt to force one schema to cover every API version, so each spec version gets its own schema, its own generated query code, and its own `archive`/`publish` binaries, all following the same pattern:
 
 ```
-db/v1914/                    SQL source: schema.sql + query.sql, read by sqlc
-internal/db/v1914/           sqlc-generated db interface package for GO
-internal/store/v1914/        plain-Go-typed wrapper over internal/db/v1914
-internal/bula/v1914/         models the Live! 1.9.14 API and maps to the store
-cmd/v1914/archive/           CLI: fetch one deployment, write a fresh data/<slug>.db
-cmd/v1914/publish/           CLI: render a data/<slug>.db as static JSON files in docs/
+db/v01_09_14/                SQL source: schema.sql + query.sql, read by sqlc
+internal/db/v01_09_14/       sqlc-generated db interface package for GO
+internal/store/v01_09_14/    plain-Go-typed wrapper over internal/db/v01_09_14
+internal/bula/v01_09_14/     models the Live! 1.9.14 API and maps to the store
+cmd/v01_09_14/archive/       CLI: fetch one deployment, write a fresh data/<slug>.db
+cmd/v01_09_14/publish/       CLI: render a data/<slug>.db as static JSON files in docs/
 internal/convert/            sql to plain go type conversions
 data/                        data archive, one sqlite .db file per tournament
 docs/                        GitHub Pages web root and location for static JSON files
 ```
 
+Binary/package names are the Live! app version with each dot-separated segment zero-padded to two digits and joined by underscores (`1.9.14` -> `v01_09_14`).
+
 ## Compatibility
 
 | Live! by BULA app version | Binary version | Status         |
 | ------------------------- | -------------- | -------------- |
-| 1.9.14 - 1.9.16           | v1914          | In Development |
-| 1.9.17                    | v1917          | Planned        |
+| 1.9.14 - 1.9.16           | v01_09_14      | In Development |
+| 1.9.17                    | v01_09_17      | Planned        |
 | 2.0.0                     | -              | Not Planned    |
-| 3.0.6                     | v3006          | Planned        |
+| 3.0.6                     | v03_00_06      | Planned        |
 
 ## Workflow
 
 1. **Archive** a tournament once it's finished. Find its host, base path and spec version and run the archiver specific for that version (see [compatibility](#compatibility))
 
    ```
-   dist/archive-v1914 -host wbuc.wfdf.sport
+   dist/archive-v01_09_14 -host wbuc.wfdf.sport
    ```
 
    This writes `data/<slug>.db`, where `<slug>` defaults to the season id the deployment's own heartbeat reports.

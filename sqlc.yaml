@@ -1,22 +1,22 @@
 version: "2"
 sql:
   - engine: "sqlite"
-    schema: "db/v1914/schema.sql"
-    queries: "db/v1914/query.sql"
+    schema: "db/v01_09_14/schema.sql"
+    queries: "db/v01_09_14/query.sql"
     gen:
       go:
         package: "db"
-        out: "internal/db/v1914"
+        out: "internal/db/v01_09_14"
         sql_package: "database/sql"
         emit_json_tags: true
         emit_prepared_queries: false
   - engine: "sqlite"
-    schema: "db/v1917/schema.sql"
-    queries: "db/v1917/query.sql"
+    schema: "db/v01_09_17/schema.sql"
+    queries: "db/v01_09_17/query.sql"
     gen:
       go:
         package: "db"
-        out: "internal/db/v1917"
+        out: "internal/db/v01_09_17"
         sql_package: "database/sql"
         emit_json_tags: true
         emit_prepared_queries: false
