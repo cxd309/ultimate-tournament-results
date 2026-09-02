@@ -26,3 +26,15 @@ INSERT INTO countries (country_ext_id, name, abbreviation, flag_file)
 RETURNING
     *;
 
+-- name: InsertTeam :one
+INSERT INTO teams (team_id, division_id, pool_id, country_id, name, abbreviation, club, seed, games_played, wins, losses, points_for, points_against, spirit_total, spirit_avg, final_standing, final_standing_calculated)
+    VALUES (sqlc.arg (team_id), sqlc.arg (division_id), sqlc.arg (pool_id), sqlc.arg (country_id), sqlc.arg (name), sqlc.arg (abbreviation), sqlc.arg (club), sqlc.arg (seed), sqlc.arg (games_played), sqlc.arg (wins), sqlc.arg (losses), sqlc.arg (points_for), sqlc.arg (points_against), sqlc.arg (spirit_total), sqlc.arg (spirit_avg), sqlc.arg (final_standing), sqlc.arg (final_standing_calculated))
+RETURNING
+    *;
+
+-- name: InsertPlayer :one
+INSERT INTO players (player_id, team_id, first_name, last_name, jersey_num, games_played, goals, assists, callahans)
+    VALUES (sqlc.arg (player_id), sqlc.arg (team_id), sqlc.arg (first_name), sqlc.arg (last_name), sqlc.arg (jersey_num), sqlc.arg (games_played), sqlc.arg (goals), sqlc.arg (assists), sqlc.arg (callahans))
+RETURNING
+    *;
+

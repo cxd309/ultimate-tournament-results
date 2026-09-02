@@ -50,6 +50,22 @@ func run() error {
 	}
 	fmt.Printf("reference: name=%q divisions=%d pools=%d countries=%d\n", ref.Season.Name, len(ref.Series), len(ref.Pools), len(ref.Countries))
 
+	teams, err := client.FetchTeams(ctx)
+	if err != nil {
+		return fmt.Errorf("fetch teams: %w", err)
+	}
+	fmt.Printf("teams: %d\n", len(teams.Teams))
+
+	detailByTeamID := make(map[int64]*v1914.TeamDetailResponse, len(teams.Teams))
+	for _, ts := range teams.Teams {
+		detail, err := client.FetchTeamDetail(ctx, ts.TeamID)
+		if err != nil {
+			return fmt.Errorf("fetch team detail %d: %w", ts.TeamID, err)
+		}
+		detailByTeamID[detail.TeamID] = detail
+	}
+	fmt.Printf("team details: %d\n", len(detailByTeamID))
+
 	if *slug == "" {
 		*slug = strings.ToLower(hb.Config.LiveSeasonID)
 	}
@@ -83,8 +99,12 @@ func run() error {
 	if err := v1914.ImportTournament(ctx, s, *host, *basePath, hb, ref); err != nil {
 		return fmt.Errorf("import tournament: %w", err)
 	}
-	if err := v1914.ImportReferenceData(ctx, s, ref); err != nil {
+	refIDs, err := v1914.ImportReferenceData(ctx, s, ref)
+	if err != nil {
 		return fmt.Errorf("import reference data: %w", err)
+	}
+	if err := v1914.ImportTeams(ctx, s, refIDs, ref, teams, detailByTeamID); err != nil {
+		return fmt.Errorf("import teams: %w", err)
 	}
 
 	tournament, err := s.GetTournament(ctx)

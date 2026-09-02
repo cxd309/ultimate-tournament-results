@@ -53,16 +53,16 @@ type Goal struct {
 }
 
 type Player struct {
-	ID          int64          `json:"id"`
-	PlayerID    int64          `json:"player_id"`
-	TeamID      int64          `json:"team_id"`
-	FirstName   sql.NullString `json:"first_name"`
-	LastName    sql.NullString `json:"last_name"`
-	JerseyNum   sql.NullInt64  `json:"jersey_num"`
-	GamesPlayed sql.NullInt64  `json:"games_played"`
-	Goals       sql.NullInt64  `json:"goals"`
-	Assists     sql.NullInt64  `json:"assists"`
-	Callahans   sql.NullInt64  `json:"callahans"`
+	ID          int64         `json:"id"`
+	PlayerID    int64         `json:"player_id"`
+	TeamID      int64         `json:"team_id"`
+	FirstName   string        `json:"first_name"`
+	LastName    string        `json:"last_name"`
+	JerseyNum   sql.NullInt64 `json:"jersey_num"`
+	GamesPlayed sql.NullInt64 `json:"games_played"`
+	Goals       sql.NullInt64 `json:"goals"`
+	Assists     sql.NullInt64 `json:"assists"`
+	Callahans   sql.NullInt64 `json:"callahans"`
 }
 
 type Pool struct {
@@ -94,22 +94,22 @@ type SpiritScore struct {
 type Team struct {
 	ID                      int64           `json:"id"`
 	TeamID                  int64           `json:"team_id"`
-	DivisionID              sql.NullInt64   `json:"division_id"`
+	DivisionID              int64           `json:"division_id"`
 	PoolID                  sql.NullInt64   `json:"pool_id"`
-	CountryID               sql.NullInt64   `json:"country_id"`
+	CountryID               int64           `json:"country_id"`
 	Name                    string          `json:"name"`
 	Abbreviation            sql.NullString  `json:"abbreviation"`
 	Club                    sql.NullString  `json:"club"`
-	Seed                    sql.NullInt64   `json:"seed"`
-	GamesPlayed             sql.NullInt64   `json:"games_played"`
-	Wins                    sql.NullInt64   `json:"wins"`
-	Losses                  sql.NullInt64   `json:"losses"`
-	PointsFor               sql.NullInt64   `json:"points_for"`
-	PointsAgainst           sql.NullInt64   `json:"points_against"`
+	Seed                    int64           `json:"seed"`
+	GamesPlayed             int64           `json:"games_played"`
+	Wins                    int64           `json:"wins"`
+	Losses                  int64           `json:"losses"`
+	PointsFor               int64           `json:"points_for"`
+	PointsAgainst           int64           `json:"points_against"`
 	SpiritTotal             sql.NullInt64   `json:"spirit_total"`
 	SpiritAvg               sql.NullFloat64 `json:"spirit_avg"`
-	FinalStanding           sql.NullInt64   `json:"final_standing"`
-	FinalStandingCalculated sql.NullInt64   `json:"final_standing_calculated"`
+	FinalStanding           int64           `json:"final_standing"`
+	FinalStandingCalculated int64           `json:"final_standing_calculated"`
 }
 
 type Tournament struct {

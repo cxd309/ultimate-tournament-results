@@ -92,6 +92,53 @@ func (q *Queries) InsertDivision(ctx context.Context, arg InsertDivisionParams) 
 	return i, err
 }
 
+const insertPlayer = `-- name: InsertPlayer :one
+INSERT INTO players (player_id, team_id, first_name, last_name, jersey_num, games_played, goals, assists, callahans)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+RETURNING
+    id, player_id, team_id, first_name, last_name, jersey_num, games_played, goals, assists, callahans
+`
+
+type InsertPlayerParams struct {
+	PlayerID    int64         `json:"player_id"`
+	TeamID      int64         `json:"team_id"`
+	FirstName   string        `json:"first_name"`
+	LastName    string        `json:"last_name"`
+	JerseyNum   sql.NullInt64 `json:"jersey_num"`
+	GamesPlayed sql.NullInt64 `json:"games_played"`
+	Goals       sql.NullInt64 `json:"goals"`
+	Assists     sql.NullInt64 `json:"assists"`
+	Callahans   sql.NullInt64 `json:"callahans"`
+}
+
+func (q *Queries) InsertPlayer(ctx context.Context, arg InsertPlayerParams) (Player, error) {
+	row := q.db.QueryRowContext(ctx, insertPlayer,
+		arg.PlayerID,
+		arg.TeamID,
+		arg.FirstName,
+		arg.LastName,
+		arg.JerseyNum,
+		arg.GamesPlayed,
+		arg.Goals,
+		arg.Assists,
+		arg.Callahans,
+	)
+	var i Player
+	err := row.Scan(
+		&i.ID,
+		&i.PlayerID,
+		&i.TeamID,
+		&i.FirstName,
+		&i.LastName,
+		&i.JerseyNum,
+		&i.GamesPlayed,
+		&i.Goals,
+		&i.Assists,
+		&i.Callahans,
+	)
+	return i, err
+}
+
 const insertPool = `-- name: InsertPool :one
 INSERT INTO pools (pool_id, division_id, name, ordering, pool_type)
     VALUES (?1, ?2, ?3, ?4, ?5)
@@ -123,6 +170,77 @@ func (q *Queries) InsertPool(ctx context.Context, arg InsertPoolParams) (Pool, e
 		&i.Name,
 		&i.Ordering,
 		&i.PoolType,
+	)
+	return i, err
+}
+
+const insertTeam = `-- name: InsertTeam :one
+INSERT INTO teams (team_id, division_id, pool_id, country_id, name, abbreviation, club, seed, games_played, wins, losses, points_for, points_against, spirit_total, spirit_avg, final_standing, final_standing_calculated)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+RETURNING
+    id, team_id, division_id, pool_id, country_id, name, abbreviation, club, seed, games_played, wins, losses, points_for, points_against, spirit_total, spirit_avg, final_standing, final_standing_calculated
+`
+
+type InsertTeamParams struct {
+	TeamID                  int64           `json:"team_id"`
+	DivisionID              int64           `json:"division_id"`
+	PoolID                  sql.NullInt64   `json:"pool_id"`
+	CountryID               int64           `json:"country_id"`
+	Name                    string          `json:"name"`
+	Abbreviation            sql.NullString  `json:"abbreviation"`
+	Club                    sql.NullString  `json:"club"`
+	Seed                    int64           `json:"seed"`
+	GamesPlayed             int64           `json:"games_played"`
+	Wins                    int64           `json:"wins"`
+	Losses                  int64           `json:"losses"`
+	PointsFor               int64           `json:"points_for"`
+	PointsAgainst           int64           `json:"points_against"`
+	SpiritTotal             sql.NullInt64   `json:"spirit_total"`
+	SpiritAvg               sql.NullFloat64 `json:"spirit_avg"`
+	FinalStanding           int64           `json:"final_standing"`
+	FinalStandingCalculated int64           `json:"final_standing_calculated"`
+}
+
+func (q *Queries) InsertTeam(ctx context.Context, arg InsertTeamParams) (Team, error) {
+	row := q.db.QueryRowContext(ctx, insertTeam,
+		arg.TeamID,
+		arg.DivisionID,
+		arg.PoolID,
+		arg.CountryID,
+		arg.Name,
+		arg.Abbreviation,
+		arg.Club,
+		arg.Seed,
+		arg.GamesPlayed,
+		arg.Wins,
+		arg.Losses,
+		arg.PointsFor,
+		arg.PointsAgainst,
+		arg.SpiritTotal,
+		arg.SpiritAvg,
+		arg.FinalStanding,
+		arg.FinalStandingCalculated,
+	)
+	var i Team
+	err := row.Scan(
+		&i.ID,
+		&i.TeamID,
+		&i.DivisionID,
+		&i.PoolID,
+		&i.CountryID,
+		&i.Name,
+		&i.Abbreviation,
+		&i.Club,
+		&i.Seed,
+		&i.GamesPlayed,
+		&i.Wins,
+		&i.Losses,
+		&i.PointsFor,
+		&i.PointsAgainst,
+		&i.SpiritTotal,
+		&i.SpiritAvg,
+		&i.FinalStanding,
+		&i.FinalStandingCalculated,
 	)
 	return i, err
 }

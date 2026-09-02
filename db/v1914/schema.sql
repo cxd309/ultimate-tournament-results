@@ -42,30 +42,30 @@ CREATE TABLE countries (
 CREATE TABLE teams (
     id integer PRIMARY KEY,
     team_id integer NOT NULL UNIQUE, -- external id
-    division_id integer REFERENCES divisions (id),
-    pool_id integer REFERENCES pools (id),
-    country_id integer REFERENCES countries (id),
+    division_id integer NOT NULL REFERENCES divisions (id), -- ReferenceTeam.series is required
+    pool_id integer REFERENCES pools (id), -- nullable: no source until the roster/team-detail slice
+    country_id integer NOT NULL REFERENCES countries (id), -- ReferenceTeam.country is required
     name text NOT NULL,
-    abbreviation text,
-    club text,
-    seed integer,
-    games_played integer,
-    wins integer,
-    losses integer,
-    points_for integer,
-    points_against integer,
-    spirit_total integer,
-    spirit_avg real,
-    final_standing integer,
-    final_standing_calculated integer
+    abbreviation text, -- ReferenceTeam.abbreviation isn't in its required list
+    club text, -- ReferenceTeam.club isn't in its required list
+    seed integer NOT NULL, -- TeamStats.seed is required
+    games_played integer NOT NULL, -- TeamStats.games is required
+    wins integer NOT NULL,
+    losses integer NOT NULL,
+    points_for integer NOT NULL, -- TeamStats.for
+    points_against integer NOT NULL, -- TeamStats.against
+    spirit_total integer, -- TeamStats.spirit: only sent when the event publishes spirit
+    spirit_avg real, -- TeamStats.spiritavg: same condition
+    final_standing integer NOT NULL,
+    final_standing_calculated integer NOT NULL
 );
 
 CREATE TABLE players (
     id integer PRIMARY KEY,
     player_id integer NOT NULL UNIQUE, -- external id
     team_id integer NOT NULL REFERENCES teams (id),
-    first_name text,
-    last_name text,
+    first_name text NOT NULL, -- PlayerStats.firstname is a required field
+    last_name text NOT NULL, -- PlayerStats.lastname is a required field
     jersey_num integer,
     games_played integer,
     goals integer,
