@@ -1,10 +1,5 @@
--- Schema for a single tournament archived from a Live! by BULA 3.0.6 deployment.
---
--- Identical to v01_09_14's schema: 3.0.6 adds teams[].reg_id and games[].time_utc and
--- removes seed.sotg_token, but none of those touch this schema. reg_id is just the
--- organizer's external registration-system id for the team, not meaningful archival
--- data; time_utc is fully reconstructible from games.time + tournament.timezone; and
--- sotg_token (a spirit-submission token, not a result) was never stored to begin with.
+-- Schema for a single tournament archived from a Live! by BULA 3.0.6 deployment
+-- (UltiOrganizer 4).
 --
 -- Every table mirrors the underlying UltiOrganizer table it's drawn from
 -- with the original MySQL type noted per column.
@@ -17,6 +12,13 @@
 -- The exceptions are values with no other source in this archive at all
 -- e.g. final_standing override, player's games_played
 -- those are kept as reported, commented with why.
+--
+-- UltiOrganizer 4 changes:
+-- uo_game drops pool column -- games join pools only through uo_game_pool now
+-- uo_spirt table dropped -- no fixed spirit categories
+-- uo_spirit_category table created -- flexible spirit categories
+-- uo_spirit_score table created -- a row for a score per game/team/category
+-- uo_game drops homesotg/visitorsotg/defenses_total columns
 --
 -- uo_country
 CREATE TABLE countries (
@@ -39,11 +41,13 @@ CREATE TABLE locations (
     address text, -- varchar(255)
     lat real, -- float(17,13)
     lng real -- float(17,13)
-    -- info_fi_FI_utf8/info_en_GB_utf8 (localized info text) skipped: not exposed via the API at all
+    -- uo_location_info (localized info text, one row per locale on this line) skipped:
+    -- not exposed via the API at all
 );
 
 -- uo_season
 -- plus archive-specific metadata that isn't from UltiOrganizer at all.
+-- reg_id not included, external registration system data not relevant
 CREATE TABLE tournament (
     season_id text NOT NULL, -- varchar(10)
     name text, -- varchar(50)
@@ -58,9 +62,19 @@ CREATE TABLE tournament (
     isnationalteams integer DEFAULT 0, -- tinyint(1)
     organizer text, -- varchar(50)
     category text, -- varchar(50)
-    spiritpoints integer, -- tinyint(1)
     showspiritpoints integer DEFAULT 0, -- tinyint(1)
+    showspiritcomments integer DEFAULT 0, -- tinyint(1)
+    showspiritpointsonlyoncomplete integer DEFAULT 1, -- tinyint(1)
+    lockteamspiritonsubmit integer DEFAULT 1, -- tinyint(1)
+    use_season_points integer DEFAULT 0, -- tinyint(1)
+    hide_time_on_scoresheet integer DEFAULT 0, -- tinyint(1)
+    hometeammode integer DEFAULT 0, -- tinyint(1)
+    event_readonly integer DEFAULT 0, -- tinyint(1)
+    maintenance_mode integer DEFAULT 0, -- tinyint(1)
+    public_event integer NOT NULL DEFAULT 0, -- tinyint(1)
+    api_public integer DEFAULT 0, -- tinyint(1)
     timezone text, -- varchar(50)
+    spiritmode integer, -- int(10); which spirit scoring system is in use
     -- archive metadata: not from uo_season
     host text NOT NULL,
     base_path text NOT NULL,
@@ -109,13 +123,15 @@ CREATE TABLE pools (
     color text, -- varchar(6)
     forfeitscore integer, -- int(10)
     forfeitagainst integer, -- int(10)
-    follower integer -- int(10)
+    follower integer, -- int(10)
+    drawsallowed integer, -- smallint(5) DEFAULT 0
+    playoff_template text -- varchar(30)
 );
 
 -- uo_reservation
 CREATE TABLE reservations (
     id integer PRIMARY KEY, -- int(10)
-    location integer NOT NULL REFERENCES locations (id), -- int(10)
+    location integer REFERENCES locations (id), -- int(10)
     fieldname text, -- varchar(50)
     reservationgroup text, -- varchar(50)
     starttime text, -- datetime
@@ -142,6 +158,7 @@ CREATE TABLE teams (
     final_standing integer,
     final_standing_calculated integer,
     club_name text -- bare club_name, not an id
+    -- sotg_token (spirit-submission token) not modeled: a credential, not a result
 );
 
 -- uo_player
@@ -155,7 +172,7 @@ CREATE TABLE players (
     accredited integer NOT NULL DEFAULT 0, -- tinyint(1)
     profile_id integer, -- int(10)
     -- games_played kept as reported
-    -- player can play a game recording zero goals or assists
+    -- a player can play a game recording zero goals or assists
     -- so it isn't derivable from the goals table alone
     -- goals/assists/callahans are NOT kept here they are recorded in goals table
     games_played integer
@@ -170,24 +187,41 @@ CREATE TABLE games (
     visitorscore integer, -- smallint(5)
     reservation integer REFERENCES reservations (id), -- int(10)
     time text, -- datetime; absent for an unscheduled game
-    pool integer REFERENCES pools (pool_id), -- int(10)
     valid integer NOT NULL, -- tinyint(1)
     halftime integer, -- int(10)
     official text, -- varchar(50)
     respteam integer REFERENCES teams (team_id), -- int(10)
     resppers integer, -- int(10)
-    homesotg integer, -- int(10)
-    visitorsotg integer, -- int(10)
     isongoing integer DEFAULT 0, -- tinyint(1)
     scheduling_name_home integer, -- int(10)
     scheduling_name_visitor integer, -- int(10)
-    name integer, -- int(10); scheduling-name id, resolved via uo_scheduling_name (not modeled)
+    name integer, -- int(10); scheduling-name id, resolved via uo_scheduling_name (not exposed)
     timeslot integer, -- int(10)
-    defenses_total integer, -- smallint(5)
-    homedefenses integer, -- smallint(5)
-    visitordefenses integer, -- smallint(5)
+    homedefenses integer, -- smallint(5) DEFAULT 0
+    visitordefenses integer, -- smallint(5) DEFAULT 0
     islive integer DEFAULT 0, -- tinyint(1)
-    liveurl text -- varchar(255)
+    liveurl text, -- varchar(512)
+    hasstarted integer, -- tinyint(1) DEFAULT 0; started flag (can be 0, 1 or 2)
+    show_spirit integer DEFAULT 0, -- tinyint(1); are spirit scores displayed
+    timer_start integer, -- bigint(20); unix seconds the game clock was started
+    timer_pause_start integer, -- bigint(20); unix seconds the clock was paused
+    timer_paused_duration integer DEFAULT 0, -- bigint(20) NOT NULL; total seconds paused
+    -- forfeit: whether the game was forfeited. A forfeit reports completed with a 0-0
+    -- scoreline on this line, so this is the only way to distinguish it from a genuine
+    -- 0-0 result.
+    forfeit integer DEFAULT 0 -- tinyint(1) NOT NULL;
+);
+
+-- uo_game_pool
+-- some games belong to multiple pools so this table manages the many-many mapping
+-- e.g. power pools where the result from a previous pool is carried through
+-- each game is owned (scheduled) by a single pool which is shown by timetable=1
+-- a "borrowed" game has timetable=0
+CREATE TABLE game_pools (
+    game_id integer NOT NULL REFERENCES games (game_id), -- int(10); real column `game`
+    pool_id integer NOT NULL REFERENCES pools (pool_id), -- int(10); real column `pool`
+    timetable integer NOT NULL, -- tinyint(1); 1 = this is the pool that "owns" this game
+    PRIMARY KEY (game_id, pool_id)
 );
 
 -- uo_goal
@@ -201,21 +235,57 @@ CREATE TABLE goals (
     visitorscore integer, -- tinyint(3) unsigned
     ishomegoal integer NOT NULL, -- tinyint(1)
     iscallahan integer NOT NULL, -- tinyint(1)
+    timestamp text, -- datetime DEFAULT current_timestamp(); timestamp of goal being recorded
     PRIMARY KEY (game_id, num)
 );
 
--- uo_spirit
--- One row per (game, recipient team)
--- team_id is for the recipient of this score
+-- uo_spirit_category
+-- Spirit category definitions per scoring mode
+-- this will be set across a whole deployment for multiple tournaments same as countries
+-- for this tool there should only be a single mode as this is for a single tournament
+CREATE TABLE spirit_categories (
+    category_id integer PRIMARY KEY, -- int(10)
+    mode integer NOT NULL, -- int(10); scoring scheme id, matches tournament.spiritmode
+    category_group integer NOT NULL DEFAULT 1, -- int(5); real column `group`
+    -- ordering:
+    -- position in the category list, counting from 1; real column `index`.
+    -- Also the digits in the API's "catN" key for this category.
+    ordering integer NOT NULL, -- int(5)
+    min integer NOT NULL DEFAULT 0, -- int(5)
+    max integer NOT NULL DEFAULT 4, -- int(5)
+    factor integer NOT NULL DEFAULT 1, -- int(5)
+    label text NOT NULL -- text; real column `text`
+);
+
+-- uo_spirit_score
+-- a single spirit score in a category for a team in a game
+-- team_id is the who the score is FOR
+-- who gave it can be assumed to be the other team in the game
 CREATE TABLE spirit_scores (
     game_id integer NOT NULL REFERENCES games (game_id), -- int(10)
-    team_id integer NOT NULL REFERENCES teams (team_id), -- int(10); the team this score is for
-    cat1 integer NOT NULL DEFAULT 0, -- tinyint(2)
-    cat2 integer NOT NULL DEFAULT 0, -- tinyint(2)
-    cat3 integer NOT NULL DEFAULT 0, -- tinyint(2)
-    cat4 integer NOT NULL DEFAULT 0, -- tinyint(2)
-    cat5 integer NOT NULL DEFAULT 0, -- tinyint(2)
-    comments text, -- TEXT DEFAULT NULL
+    team_id integer NOT NULL REFERENCES teams (team_id), -- int(10); the team recieving this score
+    category_id integer NOT NULL REFERENCES spirit_categories (category_id), -- int(10)
+    value integer, -- int(3); 0 is a real submitted score, null means not yet visible
+    PRIMARY KEY (game_id, team_id, category_id)
+);
+
+-- uo_comment
+-- uo_comment is a generic comment table for comments across UltiOrganizer
+-- this doesn't replicate the whole shape, it is only focused on spirit comments
+CREATE TABLE spirit_comments (
+    game_id integer NOT NULL REFERENCES games (game_id),
+    team_id integer NOT NULL REFERENCES teams (team_id),
+    comment text,
     PRIMARY KEY (game_id, team_id)
+);
+
+-- UltiOrganizer computes this with standings logic and does not cache result
+-- Same as teams.final_standing_calculated
+-- This archive does not include standings logic so just has a specific table
+CREATE TABLE pool_placements (
+    pool_id integer NOT NULL REFERENCES pools (pool_id),
+    team_id integer NOT NULL REFERENCES teams (team_id),
+    placement integer, -- null while the pool has no resolved rank for that team yet
+    PRIMARY KEY (pool_id, team_id)
 );
 
