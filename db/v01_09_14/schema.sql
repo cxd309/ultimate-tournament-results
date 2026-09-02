@@ -155,6 +155,15 @@ CREATE TABLE players (
     games_played integer
 );
 
+-- uo_scheduling_name
+-- resolves a scheduling-name id (games.name/scheduling_name_home/scheduling_name_visitor)
+-- to its display text
+-- e.g. bracket-slot placeholder label like "4A", or a fixture's own short name like "wxo1"
+CREATE TABLE scheduling_names (
+    scheduling_id integer PRIMARY KEY, -- int(10)
+    name text NOT NULL -- varchar(100)
+);
+
 -- uo_game
 CREATE TABLE games (
     game_id integer PRIMARY KEY, -- int(10)
@@ -173,9 +182,9 @@ CREATE TABLE games (
     homesotg integer, -- int(10)
     visitorsotg integer, -- int(10)
     isongoing integer DEFAULT 0, -- tinyint(1)
-    scheduling_name_home integer, -- int(10)
-    scheduling_name_visitor integer, -- int(10)
-    name integer, -- int(10); scheduling-name id, resolved via uo_scheduling_name (not modeled)
+    scheduling_name_home integer REFERENCES scheduling_names (scheduling_id), -- int(10)
+    scheduling_name_visitor integer REFERENCES scheduling_names (scheduling_id), -- int(10)
+    name integer REFERENCES scheduling_names (scheduling_id), -- int(10); scheduling-name id
     timeslot integer, -- int(10)
     defenses_total integer, -- smallint(5)
     homedefenses integer, -- smallint(5)

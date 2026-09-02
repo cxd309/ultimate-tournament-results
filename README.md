@@ -62,6 +62,8 @@ Sharing stops at whatever's genuinely mechanical (HTTP fetch, transaction/commit
 
    intended to be generated from what's actually in `data/*.db`, not hand-maintained, so it can never drift from the archive.
 
+Team photos and other media event links are not currently archived at all, they are real uploaded image files served by the deployment, not JSON data, so capturing them needs a future change to fetch and store the actual assets rather than just their metadata.
+
 ## Development usage
 
 ```

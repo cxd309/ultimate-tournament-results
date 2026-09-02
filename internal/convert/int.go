@@ -1,6 +1,9 @@
 package convert
 
-import "database/sql"
+import (
+	"database/sql"
+	"strconv"
+)
 
 // NullInt64 converts a Go int64 pointer to sql.NullInt64, nil meaning not set
 // Unlike NullString, 0 is a real, meaningful value for most integer columns
@@ -18,4 +21,12 @@ func Int64(n sql.NullInt64) *int64 {
 		return nil
 	}
 	return &n.Int64
+}
+
+// StringFromOptionalInt64 renders an optional int64 as its decimal string, or "" when absent
+func StringFromOptionalInt64(i *int64) string {
+	if i == nil {
+		return ""
+	}
+	return strconv.FormatInt(*i, 10)
 }

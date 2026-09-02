@@ -8,7 +8,7 @@ import (
 
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
 	liveclient "github.com/cxd309/ultimate-tournament-results/internal/liveclient/v01_09_14"
-	"github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v01_09_14"
+	livedatamodel "github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v01_09_14"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
 
@@ -32,11 +32,14 @@ func Import(ctx context.Context, s *store.Store, host, basePath string, snap *li
 	if err := importReservations(ctx, s, snap.Reference); err != nil {
 		return fmt.Errorf("import reservations: %w", err)
 	}
-	if err := importPools(ctx, s, snap.Reference); err != nil {
+	if err := importPools(ctx, s, snap.Reference, poolInfoByID(snap.GameDetailByID)); err != nil {
 		return fmt.Errorf("import pools: %w", err)
 	}
 	if err := importTeams(ctx, s, snap.Reference, snap.TeamDetailByID); err != nil {
 		return fmt.Errorf("import teams: %w", err)
+	}
+	if err := importSchedulingNames(ctx, s, snap.GameDetailByID); err != nil {
+		return fmt.Errorf("import scheduling names: %w", err)
 	}
 	if err := importGames(ctx, s, snap.GameDetailByID); err != nil {
 		return fmt.Errorf("import games: %w", err)
@@ -60,15 +63,19 @@ func Import(ctx context.Context, s *store.Store, host, basePath string, snap *li
 // heartbeat's config.TOURNAMENT_NAME "may be an empty string even on a live event."
 func importTournament(ctx context.Context, s *store.Store, host, basePath string, hb *livedatamodel.HeartbeatResponse, ref *livedatamodel.ReferenceResponse) error {
 	return s.InsertTournament(ctx, store.Tournament{
-		SeasonID:   hb.Config.LiveSeasonID,
-		Name:       ref.Season.Name,
-		StartTime:  ref.Season.StartTime,
-		EndTime:    ref.Season.EndTime,
-		Timezone:   ref.Season.Timezone,
-		Host:       host,
-		BasePath:   basePath,
-		AppVersion: hb.AppVersion,
-		ArchivedAt: time.Now().UTC().Format(time.RFC3339),
+		SeasonID:        hb.Config.LiveSeasonID,
+		Name:            ref.Season.Name,
+		StartTime:       ref.Season.StartTime,
+		EndTime:         ref.Season.EndTime,
+		Iscurrent:       ref.Season.Iscurrent,
+		Type:            ref.Season.Type,
+		Isinternational: ref.Season.Isinternational,
+		Isnationalteams: ref.Season.Isnationalteams,
+		Timezone:        ref.Season.Timezone,
+		Host:            host,
+		BasePath:        basePath,
+		AppVersion:      hb.AppVersion,
+		ArchivedAt:      time.Now().UTC().Format(time.RFC3339),
 	})
 }
 
@@ -149,15 +156,34 @@ func importReservations(ctx context.Context, s *store.Store, ref *livedatamodel.
 	return nil
 }
 
+// poolInfoByID indexes each game detail's poolinfo by pool id, deduped
+// every game in the same pool reports the same rule set, so the first one seen wins.
+// A pool with no games (e.g. an unused placeholder bracket pool) simply has no entry.
+func poolInfoByID(detailByGameID map[int64]*livedatamodel.GameDetailResponse) map[int64]*livedatamodel.PoolInfo {
+	byID := make(map[int64]*livedatamodel.PoolInfo)
+	for _, detail := range detailByGameID {
+		if detail.PoolInfo == nil {
+			continue
+		}
+		if _, ok := byID[detail.PoolInfo.PoolID]; ok {
+			continue
+		}
+		byID[detail.PoolInfo.PoolID] = detail.PoolInfo
+	}
+	return byID
+}
+
 // importPools write the pools table
 // Must be run after importDivisions
 //
 // sourced from:
 // reference endpoint pools[]
-func importPools(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse) error {
+// game detail endpoint poolinfo, via poolInfoByID; the reference endpoint's own pools[]
+// doesn't carry a pool's rule set (winningscore, timecap, etc.), only game detail does
+func importPools(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse, poolInfo map[int64]*livedatamodel.PoolInfo) error {
 	for _, pool := range ref.Pools {
 		seriesID := pool.SeriesID
-		if err := s.InsertPool(ctx, store.Pool{
+		p := store.Pool{
 			PoolID:         pool.PoolID,
 			Name:           pool.PoolName,
 			Ordering:       pool.Ordering,
@@ -167,7 +193,31 @@ func importPools(ctx context.Context, s *store.Store, ref *livedatamodel.Referen
 			Played:         pool.Played,
 			Series:         &seriesID,
 			Type:           pool.Type,
-		}); err != nil {
+			Color:          pool.Color,
+			Timeslot:       pool.Timeslot,
+		}
+		if info := poolInfo[pool.PoolID]; info != nil {
+			p.Teams = info.Teams
+			p.Mvgames = info.Mvgames
+			p.Timeoutlen = info.Timeoutlen
+			p.Halftime = info.Halftime
+			p.Winningscore = info.Winningscore
+			p.Timecap = info.Timecap
+			p.Scorecap = info.Scorecap
+			p.Addscore = info.Addscore
+			p.Halftimescore = info.Halftimescore
+			p.Timeouts = info.Timeouts
+			p.Timeoutsper = info.Timeoutsper
+			p.Timeoutsovertime = info.Timeoutsovertime
+			// pools.timeoutstimecap mirrors var_char(5) from uo_pool
+			// Live! API sends a JSON integer
+			p.Timeoutstimecap = convert.StringFromOptionalInt64(info.Timeoutstimecap)
+			p.Betweenpointslen = info.Betweenpointslen
+			p.Forfeitscore = info.Forfeitscore
+			p.Forfeitagainst = info.Forfeitagainst
+			p.Follower = info.Follower
+		}
+		if err := s.InsertPool(ctx, p); err != nil {
 			return fmt.Errorf("insert pool %d: %w", pool.PoolID, err)
 		}
 	}
@@ -239,6 +289,46 @@ func importPlayers(ctx context.Context, s *store.Store, teamID int64, players []
 			GamesPlayed: p.Games,
 		}); err != nil {
 			return fmt.Errorf("insert player %d: %w", p.PlayerID, err)
+		}
+	}
+	return nil
+}
+
+// importSchedulingNames writes the scheduling_names table
+// Must be run before importGames, which references it
+//
+// sourced from:
+// game detail endpoint game_result.name/gamename (a game's own scheduling slot) and
+// game_info.phometeamname/pvisitorteamname (the two bracket-slot placeholders)
+func importSchedulingNames(ctx context.Context, s *store.Store, detailByGameID map[int64]*livedatamodel.GameDetailResponse) error {
+	seen := make(map[int64]bool)
+	insert := func(id *int64, name string) error {
+		if id == nil || name == "" || seen[*id] {
+			return nil
+		}
+		if err := s.InsertSchedulingName(ctx, store.SchedulingName{SchedulingID: *id, Name: name}); err != nil {
+			return fmt.Errorf("insert scheduling name %d: %w", *id, err)
+		}
+		seen[*id] = true
+		return nil
+	}
+
+	for _, detail := range detailByGameID {
+		gr := detail.GameResult
+		nameID, err := parseSchedulingNameID(gr.Name)
+		if err != nil {
+			return fmt.Errorf("game %d: %w", gr.GameID, err)
+		}
+		if err := insert(nameID, gr.Gamename); err != nil {
+			return err
+		}
+		if detail.GameInfo != nil {
+			if err := insert(gr.SchedulingNameHome, convert.StringOrEmpty(detail.GameInfo.Phometeamname)); err != nil {
+				return err
+			}
+			if err := insert(gr.SchedulingNameVisitor, convert.StringOrEmpty(detail.GameInfo.Pvisitorteamname)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

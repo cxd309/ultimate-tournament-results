@@ -1,6 +1,6 @@
 -- name: InsertTournament :exec
-INSERT INTO tournament (season_id, name, starttime, endtime, timezone, host, base_path, app_version, archived_at)
-    VALUES (sqlc.arg (season_id), sqlc.arg (name), sqlc.arg (starttime), sqlc.arg (endtime), sqlc.arg (timezone), sqlc.arg (host), sqlc.arg (base_path), sqlc.arg (app_version), sqlc.arg (archived_at));
+INSERT INTO tournament (season_id, name, starttime, endtime, iscurrent, type, isinternational, isnationalteams, timezone, host, base_path, app_version, archived_at)
+    VALUES (sqlc.arg (season_id), sqlc.arg (name), sqlc.arg (starttime), sqlc.arg (endtime), sqlc.arg (iscurrent), sqlc.arg (type), sqlc.arg (isinternational), sqlc.arg (isnationalteams), sqlc.arg (timezone), sqlc.arg (host), sqlc.arg (base_path), sqlc.arg (app_version), sqlc.arg (archived_at));
 
 -- name: GetTournament :one
 SELECT
@@ -25,8 +25,11 @@ INSERT INTO reservations (id, location, fieldname, reservationgroup)
     VALUES (sqlc.arg (id), sqlc.arg (location), sqlc.arg (fieldname), sqlc.arg (reservationgroup));
 
 -- name: InsertPool :exec
-INSERT INTO pools (pool_id, name, ordering, visible, continuingpool, placementpool, played, series, type)
-    VALUES (sqlc.arg (pool_id), sqlc.arg (name), sqlc.arg (ordering), sqlc.arg (visible), sqlc.arg (continuingpool), sqlc.arg (placementpool), sqlc.arg (played), sqlc.arg (series), sqlc.arg (type));
+-- teams to follower are only known once a game in this pool has been fetched
+-- (they come from that game detail's poolinfo, not the reference endpoint's own pools[])
+-- absent for a pool with no games, e.g. an unused placeholder bracket pool
+INSERT INTO pools (pool_id, name, ordering, visible, continuingpool, placementpool, played, series, type, color, timeslot, teams, mvgames, timeoutlen, halftime, winningscore, timecap, scorecap, addscore, halftimescore, timeouts, timeoutsper, timeoutsovertime, timeoutstimecap, betweenpointslen, forfeitscore, forfeitagainst, follower)
+    VALUES (sqlc.arg (pool_id), sqlc.arg (name), sqlc.arg (ordering), sqlc.arg (visible), sqlc.arg (continuingpool), sqlc.arg (placementpool), sqlc.arg (played), sqlc.arg (series), sqlc.arg (type), sqlc.arg (color), sqlc.arg (timeslot), sqlc.arg (teams), sqlc.arg (mvgames), sqlc.arg (timeoutlen), sqlc.arg (halftime), sqlc.arg (winningscore), sqlc.arg (timecap), sqlc.arg (scorecap), sqlc.arg (addscore), sqlc.arg (halftimescore), sqlc.arg (timeouts), sqlc.arg (timeoutsper), sqlc.arg (timeoutsovertime), sqlc.arg (timeoutstimecap), sqlc.arg (betweenpointslen), sqlc.arg (forfeitscore), sqlc.arg (forfeitagainst), sqlc.arg (follower));
 
 -- name: InsertTeam :exec
 INSERT INTO teams (team_id, name, pool, rank, valid, series, country, abbreviation, final_standing, final_standing_calculated, club_name)
@@ -35,6 +38,10 @@ INSERT INTO teams (team_id, name, pool, rank, valid, series, country, abbreviati
 -- name: InsertPlayer :exec
 INSERT INTO players (player_id, firstname, lastname, team, num, games_played)
     VALUES (sqlc.arg (player_id), sqlc.arg (firstname), sqlc.arg (lastname), sqlc.arg (team), sqlc.arg (num), sqlc.arg (games_played));
+
+-- name: InsertSchedulingName :exec
+INSERT INTO scheduling_names (scheduling_id, name)
+    VALUES (sqlc.arg (scheduling_id), sqlc.arg (name));
 
 -- name: InsertGame :exec
 INSERT INTO games (game_id, hometeam, visitorteam, homescore, visitorscore, reservation, time, pool, valid, halftime, official, respteam, resppers, homesotg, visitorsotg, isongoing, scheduling_name_home, scheduling_name_visitor, name, timeslot, homedefenses, visitordefenses, islive, liveurl)

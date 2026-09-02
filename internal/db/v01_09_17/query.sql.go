@@ -219,22 +219,44 @@ func (q *Queries) InsertPlayer(ctx context.Context, arg InsertPlayerParams) erro
 }
 
 const insertPool = `-- name: InsertPool :exec
-INSERT INTO pools (pool_id, name, ordering, visible, continuingpool, placementpool, played, series, type)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+INSERT INTO pools (pool_id, name, ordering, visible, continuingpool, placementpool, played, series, type, color, timeslot, teams, mvgames, timeoutlen, halftime, winningscore, timecap, scorecap, addscore, halftimescore, timeouts, timeoutsper, timeoutsovertime, timeoutstimecap, betweenpointslen, forfeitscore, forfeitagainst, follower)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)
 `
 
 type InsertPoolParams struct {
-	PoolID         int64          `json:"pool_id"`
-	Name           sql.NullString `json:"name"`
-	Ordering       sql.NullString `json:"ordering"`
-	Visible        int64          `json:"visible"`
-	Continuingpool int64          `json:"continuingpool"`
-	Placementpool  sql.NullInt64  `json:"placementpool"`
-	Played         int64          `json:"played"`
-	Series         sql.NullInt64  `json:"series"`
-	Type           int64          `json:"type"`
+	PoolID           int64          `json:"pool_id"`
+	Name             sql.NullString `json:"name"`
+	Ordering         sql.NullString `json:"ordering"`
+	Visible          int64          `json:"visible"`
+	Continuingpool   int64          `json:"continuingpool"`
+	Placementpool    sql.NullInt64  `json:"placementpool"`
+	Played           int64          `json:"played"`
+	Series           sql.NullInt64  `json:"series"`
+	Type             int64          `json:"type"`
+	Color            sql.NullString `json:"color"`
+	Timeslot         sql.NullInt64  `json:"timeslot"`
+	Teams            sql.NullInt64  `json:"teams"`
+	Mvgames          sql.NullInt64  `json:"mvgames"`
+	Timeoutlen       sql.NullInt64  `json:"timeoutlen"`
+	Halftime         sql.NullInt64  `json:"halftime"`
+	Winningscore     sql.NullInt64  `json:"winningscore"`
+	Timecap          sql.NullInt64  `json:"timecap"`
+	Scorecap         sql.NullInt64  `json:"scorecap"`
+	Addscore         sql.NullInt64  `json:"addscore"`
+	Halftimescore    sql.NullInt64  `json:"halftimescore"`
+	Timeouts         sql.NullInt64  `json:"timeouts"`
+	Timeoutsper      sql.NullString `json:"timeoutsper"`
+	Timeoutsovertime sql.NullInt64  `json:"timeoutsovertime"`
+	Timeoutstimecap  sql.NullString `json:"timeoutstimecap"`
+	Betweenpointslen sql.NullInt64  `json:"betweenpointslen"`
+	Forfeitscore     sql.NullInt64  `json:"forfeitscore"`
+	Forfeitagainst   sql.NullInt64  `json:"forfeitagainst"`
+	Follower         sql.NullInt64  `json:"follower"`
 }
 
+// teams to follower are only known once a game in this pool has been fetched
+// (they come from that game detail's poolinfo, not the reference endpoint's own pools[])
+// absent for a pool with no games, e.g. an unused placeholder bracket pool
 func (q *Queries) InsertPool(ctx context.Context, arg InsertPoolParams) error {
 	_, err := q.db.ExecContext(ctx, insertPool,
 		arg.PoolID,
@@ -246,6 +268,25 @@ func (q *Queries) InsertPool(ctx context.Context, arg InsertPoolParams) error {
 		arg.Played,
 		arg.Series,
 		arg.Type,
+		arg.Color,
+		arg.Timeslot,
+		arg.Teams,
+		arg.Mvgames,
+		arg.Timeoutlen,
+		arg.Halftime,
+		arg.Winningscore,
+		arg.Timecap,
+		arg.Scorecap,
+		arg.Addscore,
+		arg.Halftimescore,
+		arg.Timeouts,
+		arg.Timeoutsper,
+		arg.Timeoutsovertime,
+		arg.Timeoutstimecap,
+		arg.Betweenpointslen,
+		arg.Forfeitscore,
+		arg.Forfeitagainst,
+		arg.Follower,
 	)
 	return err
 }
@@ -269,6 +310,21 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		arg.Fieldname,
 		arg.Reservationgroup,
 	)
+	return err
+}
+
+const insertSchedulingName = `-- name: InsertSchedulingName :exec
+INSERT INTO scheduling_names (scheduling_id, name)
+    VALUES (?1, ?2)
+`
+
+type InsertSchedulingNameParams struct {
+	SchedulingID int64  `json:"scheduling_id"`
+	Name         string `json:"name"`
+}
+
+func (q *Queries) InsertSchedulingName(ctx context.Context, arg InsertSchedulingNameParams) error {
+	_, err := q.db.ExecContext(ctx, insertSchedulingName, arg.SchedulingID, arg.Name)
 	return err
 }
 
@@ -339,20 +395,24 @@ func (q *Queries) InsertTeam(ctx context.Context, arg InsertTeamParams) error {
 }
 
 const insertTournament = `-- name: InsertTournament :exec
-INSERT INTO tournament (season_id, name, starttime, endtime, timezone, host, base_path, app_version, archived_at)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+INSERT INTO tournament (season_id, name, starttime, endtime, iscurrent, type, isinternational, isnationalteams, timezone, host, base_path, app_version, archived_at)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
 `
 
 type InsertTournamentParams struct {
-	SeasonID   string         `json:"season_id"`
-	Name       sql.NullString `json:"name"`
-	Starttime  sql.NullString `json:"starttime"`
-	Endtime    sql.NullString `json:"endtime"`
-	Timezone   sql.NullString `json:"timezone"`
-	Host       string         `json:"host"`
-	BasePath   string         `json:"base_path"`
-	AppVersion sql.NullString `json:"app_version"`
-	ArchivedAt string         `json:"archived_at"`
+	SeasonID        string         `json:"season_id"`
+	Name            sql.NullString `json:"name"`
+	Starttime       sql.NullString `json:"starttime"`
+	Endtime         sql.NullString `json:"endtime"`
+	Iscurrent       int64          `json:"iscurrent"`
+	Type            sql.NullString `json:"type"`
+	Isinternational sql.NullInt64  `json:"isinternational"`
+	Isnationalteams sql.NullInt64  `json:"isnationalteams"`
+	Timezone        sql.NullString `json:"timezone"`
+	Host            string         `json:"host"`
+	BasePath        string         `json:"base_path"`
+	AppVersion      sql.NullString `json:"app_version"`
+	ArchivedAt      string         `json:"archived_at"`
 }
 
 func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentParams) error {
@@ -361,6 +421,10 @@ func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentPara
 		arg.Name,
 		arg.Starttime,
 		arg.Endtime,
+		arg.Iscurrent,
+		arg.Type,
+		arg.Isinternational,
+		arg.Isnationalteams,
 		arg.Timezone,
 		arg.Host,
 		arg.BasePath,

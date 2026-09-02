@@ -35,12 +35,19 @@ type ReferenceResponse struct {
 
 // Season is ReferenceResponse.Season
 // Only the fields this archiver currently uses are modeled here
+// organizer/category/istournament/enrollopen/enroll_deadline/spiritpoints/showspiritpoints
+// are genuine uo_season columns too, but this endpoint strips them
+// they are unrecoverable so not modeled here
 type Season struct {
-	Name      string `json:"name"`
-	StartTime string `json:"starttime"`
-	EndTime   string `json:"endtime"`
-	Timezone  string `json:"timezone"`
-	Status    string `json:"status"`
+	Name            string          `json:"name"`
+	StartTime       string          `json:"starttime"`
+	EndTime         string          `json:"endtime"`
+	Iscurrent       convert.IntBool `json:"iscurrent"`
+	Type            string          `json:"type"`
+	Isinternational convert.IntBool `json:"isinternational"`
+	Isnationalteams convert.IntBool `json:"isnationalteams"`
+	Timezone        string          `json:"timezone"`
+	Status          string          `json:"status"`
 }
 
 // Series is one entry in ReferenceResponse.Series, a division
@@ -61,6 +68,8 @@ type Pool struct {
 	Played        convert.IntBool `json:"played"`
 	Placementpool convert.IntBool `json:"placementpool"`
 	Continuing    convert.IntBool `json:"continuingpool"`
+	Color         string          `json:"color"`
+	Timeslot      *int64          `json:"timeslot"`
 }
 
 // Country is one entry in ReferenceResponse.Countries
@@ -140,13 +149,55 @@ type GameListEntry struct {
 // GameDetailResponse is the response of GET {basePath}{seasonId}_games_{gameId}.json
 // See openapi-1.9.14.yaml #/components/schemas/GameDetailResponse
 //
-// Only the fields this archiver currently uses are modeled here: game_info, seasoninfo,
-// poolinfo, teams, the two scoreboards, gameevents/mediaevents and the captains are all
-// either derivable from data already stored elsewhere or out of scope for this schema.
+// seasoninfo, teams, the two scoreboards, gameevents/mediaevents and the captains are
+// all either derivable from data already stored elsewhere or out of scope for this
+// schema, game_info/poolinfo are only partially modeled, see GameInfo/PoolInfo
 type GameDetailResponse struct {
 	GameResult  GameResult       `json:"game_result"`
+	GameInfo    *GameInfo        `json:"game_info"`
+	PoolInfo    *PoolInfo        `json:"poolinfo"`
 	Goals       []Goal           `json:"goals"`
 	SpiritStats *GameSpiritStats `json:"spiritstats"` // absent when the event doesn't publish spirit points
+}
+
+// GameInfo is GameDetailResponse.GameInfo: the display view of the game
+// resolving team/pool/division ids to names and adding the pool's scoring rules
+//
+// Only the scheduling-name placeholder text is modeled here
+// everything else is redundant with data already stored elsewhere via the ids on GameResult
+type GameInfo struct {
+	Phometeamname    *string `json:"phometeamname"`
+	Pvisitorteamname *string `json:"pvisitorteamname"`
+}
+
+// PoolInfo is GameDetailResponse.PoolInfo: a pool's full rule set
+// embedded in a game's own detail response.
+// Wider than the reference endpoint's Pool
+// see the pools table's own comment for why these columns aren't reachable any other way
+//
+// Only the rule-set fields the reference endpoint doesn't already cover are modeled
+// here (pool_id is kept too, to key the merge back onto the right pool)
+type PoolInfo struct {
+	PoolID           int64  `json:"pool_id"`
+	Teams            *int64 `json:"teams"`
+	Mvgames          *int64 `json:"mvgames"`
+	Timeoutlen       *int64 `json:"timeoutlen"`
+	Halftime         *int64 `json:"halftime"`
+	Winningscore     *int64 `json:"winningscore"`
+	Timecap          *int64 `json:"timecap"`
+	Scorecap         *int64 `json:"scorecap"`
+	Addscore         *int64 `json:"addscore"`
+	Halftimescore    *int64 `json:"halftimescore"`
+	Timeouts         *int64 `json:"timeouts"`
+	Timeoutsper      string `json:"timeoutsper"`
+	Timeoutsovertime *int64 `json:"timeoutsovertime"`
+	// Timeoutstimecap mirrors uo_pool's own varchar(5) column even though the live API
+	// sends it as a JSON integer -- numeric strings are auto-coerced on the wire
+	Timeoutstimecap  *int64 `json:"timeoutstimecap"`
+	Betweenpointslen *int64 `json:"betweenpointslen"`
+	Forfeitscore     *int64 `json:"forfeitscore"`
+	Forfeitagainst   *int64 `json:"forfeitagainst"`
+	Follower         *int64 `json:"follower"`
 }
 
 // GameResult is GameDetailResponse.GameResult: the game's stored row, closer to raw
@@ -182,6 +233,9 @@ type GameResult struct {
 	// Name is the scheduling-name id, sent as a numeric string because `name` is exempt
 	// from the API's usual number coercion -- parsed back to int64 on import.
 	Name *string `json:"name"`
+	// Gamename resolves Name to its display text, same value as gameschedulingname
+	// a duplicate from a second join on uo_scheduling_name
+	Gamename string `json:"gamename"`
 }
 
 // Goal is one entry in GameDetailResponse.Goals, one goal in scoring order.
