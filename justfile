@@ -1,3 +1,5 @@
+# Build output directory
+dist_dir := "dist"
 
 # ── Check Dependencies: print version for all cli's required ─────────────────
 check-deps:
@@ -19,3 +21,13 @@ fmt:
 # ── DB Generate: sqlc generate db package  ───────────────────────────────────
 dbgen:
     sqlc generate
+
+# ── Clean: remove build output ────────────────────────────────────────────────
+clean:
+    rm -rf {{ dist_dir }}
+
+# ── Build: compile cmd/utr into {{ dist_dir }}/utr ────────────────────────────
+build: clean fmt
+    mkdir -p {{ dist_dir }}
+    go build -o {{ dist_dir }}/utr ./cmd/utr
+ 

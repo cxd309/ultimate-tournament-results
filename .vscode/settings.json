@@ -14,5 +14,9 @@
   "[sql]": {
     "editor.defaultFormatter": "bradymholt.pgformatter",
     "editor.formatOnSave": true
-  }
+  },
+  // pg_format's CLI default noSpaceFunction to false
+  // extension defaults noSpaceFunction to true
+  // Match `just fmt` (plain `pg_format -i`) by disabling here
+  "pgFormatter.noSpaceFunction": false
 }
