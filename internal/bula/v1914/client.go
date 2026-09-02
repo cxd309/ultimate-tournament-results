@@ -102,15 +102,6 @@ func (c *Client) FetchReference(ctx context.Context) (*ReferenceResponse, error)
 	return &ref, nil
 }
 
-// FetchTeams fetches {BasePath}{SeasonID}_teams.json
-func (c *Client) FetchTeams(ctx context.Context) (*TeamsResponse, error) {
-	var resp TeamsResponse
-	if err := c.getSeasonJSON(ctx, "_teams", &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // FetchTeamDetail fetches {BasePath}{SeasonID}_teams_{teamID}.json.
 func (c *Client) FetchTeamDetail(ctx context.Context, teamID int64) (*TeamDetailResponse, error) {
 	var detail TeamDetailResponse

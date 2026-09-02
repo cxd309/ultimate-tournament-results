@@ -12,7 +12,7 @@ import (
 
 const getTournament = `-- name: GetTournament :one
 SELECT
-    event_name, host, season_id, base_path, app_version, start_date, end_date, timezone, status, archived_at
+    season_id, name, starttime, endtime, iscurrent, enrollopen, enroll_deadline, type, istournament, isinternational, isnationalteams, organizer, category, spiritpoints, showspiritpoints, timezone, host, base_path, app_version, archived_at
 FROM
     tournament
 `
@@ -21,259 +21,224 @@ func (q *Queries) GetTournament(ctx context.Context) (Tournament, error) {
 	row := q.db.QueryRowContext(ctx, getTournament)
 	var i Tournament
 	err := row.Scan(
-		&i.EventName,
-		&i.Host,
 		&i.SeasonID,
+		&i.Name,
+		&i.Starttime,
+		&i.Endtime,
+		&i.Iscurrent,
+		&i.Enrollopen,
+		&i.EnrollDeadline,
+		&i.Type,
+		&i.Istournament,
+		&i.Isinternational,
+		&i.Isnationalteams,
+		&i.Organizer,
+		&i.Category,
+		&i.Spiritpoints,
+		&i.Showspiritpoints,
+		&i.Timezone,
+		&i.Host,
 		&i.BasePath,
 		&i.AppVersion,
-		&i.StartDate,
-		&i.EndDate,
-		&i.Timezone,
-		&i.Status,
 		&i.ArchivedAt,
 	)
 	return i, err
 }
 
-const insertCountry = `-- name: InsertCountry :one
-INSERT INTO countries (country_ext_id, name, abbreviation, flag_file)
+const insertCountry = `-- name: InsertCountry :exec
+INSERT INTO countries (country_id, name, abbreviation, flag_file)
     VALUES (?1, ?2, ?3, ?4)
-RETURNING
-    id, country_ext_id, name, abbreviation, flag_file
 `
 
 type InsertCountryParams struct {
-	CountryExtID int64  `json:"country_ext_id"`
-	Name         string `json:"name"`
-	Abbreviation string `json:"abbreviation"`
-	FlagFile     string `json:"flag_file"`
+	CountryID    int64          `json:"country_id"`
+	Name         string         `json:"name"`
+	Abbreviation sql.NullString `json:"abbreviation"`
+	FlagFile     sql.NullString `json:"flag_file"`
 }
 
-func (q *Queries) InsertCountry(ctx context.Context, arg InsertCountryParams) (Country, error) {
-	row := q.db.QueryRowContext(ctx, insertCountry,
-		arg.CountryExtID,
+func (q *Queries) InsertCountry(ctx context.Context, arg InsertCountryParams) error {
+	_, err := q.db.ExecContext(ctx, insertCountry,
+		arg.CountryID,
 		arg.Name,
 		arg.Abbreviation,
 		arg.FlagFile,
 	)
-	var i Country
-	err := row.Scan(
-		&i.ID,
-		&i.CountryExtID,
-		&i.Name,
-		&i.Abbreviation,
-		&i.FlagFile,
-	)
-	return i, err
+	return err
 }
 
-const insertDivision = `-- name: InsertDivision :one
+const insertDivision = `-- name: InsertDivision :exec
 INSERT INTO divisions (series_id, name, ordering)
     VALUES (?1, ?2, ?3)
-RETURNING
-    id, series_id, name, ordering
 `
 
 type InsertDivisionParams struct {
-	SeriesID int64  `json:"series_id"`
-	Name     string `json:"name"`
-	Ordering string `json:"ordering"`
+	SeriesID int64          `json:"series_id"`
+	Name     sql.NullString `json:"name"`
+	Ordering sql.NullString `json:"ordering"`
 }
 
-func (q *Queries) InsertDivision(ctx context.Context, arg InsertDivisionParams) (Division, error) {
-	row := q.db.QueryRowContext(ctx, insertDivision, arg.SeriesID, arg.Name, arg.Ordering)
-	var i Division
-	err := row.Scan(
-		&i.ID,
-		&i.SeriesID,
-		&i.Name,
-		&i.Ordering,
-	)
-	return i, err
+func (q *Queries) InsertDivision(ctx context.Context, arg InsertDivisionParams) error {
+	_, err := q.db.ExecContext(ctx, insertDivision, arg.SeriesID, arg.Name, arg.Ordering)
+	return err
 }
 
-const insertPlayer = `-- name: InsertPlayer :one
-INSERT INTO players (player_id, team_id, first_name, last_name, jersey_num, games_played, goals, assists, callahans)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-RETURNING
-    id, player_id, team_id, first_name, last_name, jersey_num, games_played, goals, assists, callahans
+const insertLocation = `-- name: InsertLocation :exec
+INSERT INTO locations (id, name)
+    VALUES (?1, ?2)
+`
+
+type InsertLocationParams struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) InsertLocation(ctx context.Context, arg InsertLocationParams) error {
+	_, err := q.db.ExecContext(ctx, insertLocation, arg.ID, arg.Name)
+	return err
+}
+
+const insertPlayer = `-- name: InsertPlayer :exec
+INSERT INTO players (player_id, firstname, lastname, team, num, games_played)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6)
 `
 
 type InsertPlayerParams struct {
-	PlayerID    int64         `json:"player_id"`
-	TeamID      int64         `json:"team_id"`
-	FirstName   string        `json:"first_name"`
-	LastName    string        `json:"last_name"`
-	JerseyNum   sql.NullInt64 `json:"jersey_num"`
-	GamesPlayed sql.NullInt64 `json:"games_played"`
-	Goals       sql.NullInt64 `json:"goals"`
-	Assists     sql.NullInt64 `json:"assists"`
-	Callahans   sql.NullInt64 `json:"callahans"`
+	PlayerID    int64          `json:"player_id"`
+	Firstname   sql.NullString `json:"firstname"`
+	Lastname    sql.NullString `json:"lastname"`
+	Team        sql.NullInt64  `json:"team"`
+	Num         sql.NullInt64  `json:"num"`
+	GamesPlayed sql.NullInt64  `json:"games_played"`
 }
 
-func (q *Queries) InsertPlayer(ctx context.Context, arg InsertPlayerParams) (Player, error) {
-	row := q.db.QueryRowContext(ctx, insertPlayer,
+func (q *Queries) InsertPlayer(ctx context.Context, arg InsertPlayerParams) error {
+	_, err := q.db.ExecContext(ctx, insertPlayer,
 		arg.PlayerID,
-		arg.TeamID,
-		arg.FirstName,
-		arg.LastName,
-		arg.JerseyNum,
+		arg.Firstname,
+		arg.Lastname,
+		arg.Team,
+		arg.Num,
 		arg.GamesPlayed,
-		arg.Goals,
-		arg.Assists,
-		arg.Callahans,
 	)
-	var i Player
-	err := row.Scan(
-		&i.ID,
-		&i.PlayerID,
-		&i.TeamID,
-		&i.FirstName,
-		&i.LastName,
-		&i.JerseyNum,
-		&i.GamesPlayed,
-		&i.Goals,
-		&i.Assists,
-		&i.Callahans,
-	)
-	return i, err
+	return err
 }
 
-const insertPool = `-- name: InsertPool :one
-INSERT INTO pools (pool_id, division_id, name, ordering, pool_type)
-    VALUES (?1, ?2, ?3, ?4, ?5)
-RETURNING
-    id, pool_id, division_id, name, ordering, pool_type
+const insertPool = `-- name: InsertPool :exec
+INSERT INTO pools (pool_id, name, ordering, visible, continuingpool, placementpool, played, series, type)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
 `
 
 type InsertPoolParams struct {
-	PoolID     int64  `json:"pool_id"`
-	DivisionID int64  `json:"division_id"`
-	Name       string `json:"name"`
-	Ordering   string `json:"ordering"`
-	PoolType   int64  `json:"pool_type"`
+	PoolID         int64          `json:"pool_id"`
+	Name           sql.NullString `json:"name"`
+	Ordering       sql.NullString `json:"ordering"`
+	Visible        int64          `json:"visible"`
+	Continuingpool int64          `json:"continuingpool"`
+	Placementpool  sql.NullInt64  `json:"placementpool"`
+	Played         int64          `json:"played"`
+	Series         sql.NullInt64  `json:"series"`
+	Type           int64          `json:"type"`
 }
 
-func (q *Queries) InsertPool(ctx context.Context, arg InsertPoolParams) (Pool, error) {
-	row := q.db.QueryRowContext(ctx, insertPool,
+func (q *Queries) InsertPool(ctx context.Context, arg InsertPoolParams) error {
+	_, err := q.db.ExecContext(ctx, insertPool,
 		arg.PoolID,
-		arg.DivisionID,
 		arg.Name,
 		arg.Ordering,
-		arg.PoolType,
+		arg.Visible,
+		arg.Continuingpool,
+		arg.Placementpool,
+		arg.Played,
+		arg.Series,
+		arg.Type,
 	)
-	var i Pool
-	err := row.Scan(
-		&i.ID,
-		&i.PoolID,
-		&i.DivisionID,
-		&i.Name,
-		&i.Ordering,
-		&i.PoolType,
-	)
-	return i, err
+	return err
 }
 
-const insertTeam = `-- name: InsertTeam :one
-INSERT INTO teams (team_id, division_id, pool_id, country_id, name, abbreviation, club, seed, games_played, wins, losses, points_for, points_against, spirit_total, spirit_avg, final_standing, final_standing_calculated)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
-RETURNING
-    id, team_id, division_id, pool_id, country_id, name, abbreviation, club, seed, games_played, wins, losses, points_for, points_against, spirit_total, spirit_avg, final_standing, final_standing_calculated
+const insertReservation = `-- name: InsertReservation :exec
+INSERT INTO reservations (id, location, fieldname, reservationgroup)
+    VALUES (?1, ?2, ?3, ?4)
 `
 
-type InsertTeamParams struct {
-	TeamID                  int64           `json:"team_id"`
-	DivisionID              int64           `json:"division_id"`
-	PoolID                  sql.NullInt64   `json:"pool_id"`
-	CountryID               int64           `json:"country_id"`
-	Name                    string          `json:"name"`
-	Abbreviation            sql.NullString  `json:"abbreviation"`
-	Club                    sql.NullString  `json:"club"`
-	Seed                    int64           `json:"seed"`
-	GamesPlayed             int64           `json:"games_played"`
-	Wins                    int64           `json:"wins"`
-	Losses                  int64           `json:"losses"`
-	PointsFor               int64           `json:"points_for"`
-	PointsAgainst           int64           `json:"points_against"`
-	SpiritTotal             sql.NullInt64   `json:"spirit_total"`
-	SpiritAvg               sql.NullFloat64 `json:"spirit_avg"`
-	FinalStanding           int64           `json:"final_standing"`
-	FinalStandingCalculated int64           `json:"final_standing_calculated"`
+type InsertReservationParams struct {
+	ID               int64          `json:"id"`
+	Location         int64          `json:"location"`
+	Fieldname        sql.NullString `json:"fieldname"`
+	Reservationgroup sql.NullString `json:"reservationgroup"`
 }
 
-func (q *Queries) InsertTeam(ctx context.Context, arg InsertTeamParams) (Team, error) {
-	row := q.db.QueryRowContext(ctx, insertTeam,
-		arg.TeamID,
-		arg.DivisionID,
-		arg.PoolID,
-		arg.CountryID,
-		arg.Name,
-		arg.Abbreviation,
-		arg.Club,
-		arg.Seed,
-		arg.GamesPlayed,
-		arg.Wins,
-		arg.Losses,
-		arg.PointsFor,
-		arg.PointsAgainst,
-		arg.SpiritTotal,
-		arg.SpiritAvg,
-		arg.FinalStanding,
-		arg.FinalStandingCalculated,
+func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationParams) error {
+	_, err := q.db.ExecContext(ctx, insertReservation,
+		arg.ID,
+		arg.Location,
+		arg.Fieldname,
+		arg.Reservationgroup,
 	)
-	var i Team
-	err := row.Scan(
-		&i.ID,
-		&i.TeamID,
-		&i.DivisionID,
-		&i.PoolID,
-		&i.CountryID,
-		&i.Name,
-		&i.Abbreviation,
-		&i.Club,
-		&i.Seed,
-		&i.GamesPlayed,
-		&i.Wins,
-		&i.Losses,
-		&i.PointsFor,
-		&i.PointsAgainst,
-		&i.SpiritTotal,
-		&i.SpiritAvg,
-		&i.FinalStanding,
-		&i.FinalStandingCalculated,
-	)
-	return i, err
+	return err
 }
 
-const insertTournament = `-- name: InsertTournament :exec
-INSERT INTO tournament (event_name, host, season_id, base_path, app_version, start_date, end_date, timezone, status, archived_at)
+const insertTeam = `-- name: InsertTeam :exec
+INSERT INTO teams (team_id, name, pool, rank, valid, series, country, abbreviation, final_standing, final_standing_calculated)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
 `
 
+type InsertTeamParams struct {
+	TeamID                  int64          `json:"team_id"`
+	Name                    sql.NullString `json:"name"`
+	Pool                    sql.NullInt64  `json:"pool"`
+	Rank                    sql.NullInt64  `json:"rank"`
+	Valid                   int64          `json:"valid"`
+	Series                  sql.NullInt64  `json:"series"`
+	Country                 sql.NullInt64  `json:"country"`
+	Abbreviation            sql.NullString `json:"abbreviation"`
+	FinalStanding           sql.NullInt64  `json:"final_standing"`
+	FinalStandingCalculated sql.NullInt64  `json:"final_standing_calculated"`
+}
+
+func (q *Queries) InsertTeam(ctx context.Context, arg InsertTeamParams) error {
+	_, err := q.db.ExecContext(ctx, insertTeam,
+		arg.TeamID,
+		arg.Name,
+		arg.Pool,
+		arg.Rank,
+		arg.Valid,
+		arg.Series,
+		arg.Country,
+		arg.Abbreviation,
+		arg.FinalStanding,
+		arg.FinalStandingCalculated,
+	)
+	return err
+}
+
+const insertTournament = `-- name: InsertTournament :exec
+INSERT INTO tournament (season_id, name, starttime, endtime, timezone, host, base_path, app_version, archived_at)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+`
+
 type InsertTournamentParams struct {
-	EventName  string         `json:"event_name"`
-	Host       string         `json:"host"`
 	SeasonID   string         `json:"season_id"`
+	Name       sql.NullString `json:"name"`
+	Starttime  sql.NullString `json:"starttime"`
+	Endtime    sql.NullString `json:"endtime"`
+	Timezone   sql.NullString `json:"timezone"`
+	Host       string         `json:"host"`
 	BasePath   string         `json:"base_path"`
 	AppVersion sql.NullString `json:"app_version"`
-	StartDate  sql.NullString `json:"start_date"`
-	EndDate    sql.NullString `json:"end_date"`
-	Timezone   sql.NullString `json:"timezone"`
-	Status     sql.NullString `json:"status"`
 	ArchivedAt string         `json:"archived_at"`
 }
 
 func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentParams) error {
 	_, err := q.db.ExecContext(ctx, insertTournament,
-		arg.EventName,
-		arg.Host,
 		arg.SeasonID,
+		arg.Name,
+		arg.Starttime,
+		arg.Endtime,
+		arg.Timezone,
+		arg.Host,
 		arg.BasePath,
 		arg.AppVersion,
-		arg.StartDate,
-		arg.EndDate,
-		arg.Timezone,
-		arg.Status,
 		arg.ArchivedAt,
 	)
 	return err

@@ -1,127 +1,229 @@
--- Schema for a single tournament
--- archived from a Live! by BULA 1.9.14-1.9.16 deployment
--- openapi-1.9.14.yaml in the live-by-bula-openapi repo
+-- Schema for a single tournament archived from a Live! by BULA 1.9.14-1.9.16 deployment.
+--
+-- Every table mirrors the underlying UltiOrganizer table it's drawn from
+-- with the original MySQL type noted per column.
+-- Columns not exposed via API are kept, nullable, rather than dropped
+-- prune once confirmed unreachable via the API
+-- UltiOrganizer's own schema has no foreign keys, these have been inferred
+--
+-- Nothing derivable from other stored columns is stored redundantly
+-- e.g. a game's status or a team's win/loss record
+-- The exceptions are values with no other source in this archive at all
+-- e.g. final_standing override, player's games_played
+-- those are kept as reported, commented with why.
+-- uo_club
+CREATE TABLE club (
+    club_id integer PRIMARY KEY, -- int(10)
+    name text, -- varchar(50)
+    contacts text,
+    city text, -- varchar(100)
+    country integer REFERENCES countries (country_id), -- int(10)
+    story text,
+    achievements text,
+    image integer, -- int(10), FK to uo_image, not modeled (not results-relevant)
+    valid integer NOT NULL DEFAULT 1, -- tinyint(4)
+    profile_image text, -- varchar(20)
+    founded integer -- int(4)
+);
+
+-- uo_country
+CREATE TABLE countries (
+    country_id integer PRIMARY KEY, -- int(10)
+    name text NOT NULL, -- varchar(50)
+    abbreviation text, -- char(3)
+    flag_file text, -- varchar(50)
+    valid integer NOT NULL DEFAULT 1 -- tinyint(4)
+);
+
+-- uo_location
+-- API's Reservation.name (venue name) is this table's `name`
+-- joined via uo_reservation.location
+-- uo_reservation has no name column of its own.
+CREATE TABLE locations (
+    id integer PRIMARY KEY, -- int(10)
+    name text NOT NULL, -- varchar(50)
+    fields integer NOT NULL DEFAULT 1, -- int(5)
+    indoor integer NOT NULL DEFAULT 0, -- tinyint(1)
+    address text, -- varchar(255)
+    lat real, -- float(17,13)
+    lng real -- float(17,13)
+    -- info_fi_FI_utf8/info_en_GB_utf8 (localized info text) skipped: not exposed via the API at all
+);
+
+-- uo_season
+-- plus archive-specific metadata that isn't from UltiOrganizer at all.
 CREATE TABLE tournament (
-    -- no primary key: exactly one row, written once by one process into a fresh file
-    event_name text NOT NULL,
+    season_id text NOT NULL, -- varchar(10)
+    name text, -- varchar(50)
+    starttime text, -- datetime
+    endtime text, -- datetime
+    iscurrent integer NOT NULL DEFAULT 0, -- tinyint(4)
+    enrollopen integer NOT NULL DEFAULT 0, -- tinyint(1)
+    enroll_deadline text, -- datetime
+    type text, -- varchar(20)
+    istournament integer DEFAULT 0, -- tinyint(1)
+    isinternational integer DEFAULT 0, -- tinyint(1)
+    isnationalteams integer DEFAULT 0, -- tinyint(1)
+    organizer text, -- varchar(50)
+    category text, -- varchar(50)
+    spiritpoints integer, -- tinyint(1)
+    showspiritpoints integer DEFAULT 0, -- tinyint(1)
+    timezone text, -- varchar(50)
+    -- archive metadata: not from uo_season
     host text NOT NULL,
-    season_id text NOT NULL,
     base_path text NOT NULL,
-    app_version text, -- raw app_version string as reported
-    start_date text,
-    end_date text,
-    timezone text,
-    status text, -- season.status at archive time
+    app_version text,
     archived_at text NOT NULL
 );
 
+-- uo_series
 CREATE TABLE divisions (
-    id integer PRIMARY KEY,
-    series_id integer NOT NULL UNIQUE, -- external id
-    name text NOT NULL,
-    ordering text NOT NULL -- Series.ordering is a required field
+    series_id integer PRIMARY KEY, -- int(10)
+    name text, -- varchar(50)
+    ordering text, -- varchar(1)
+    season text, -- varchar(50); redundant with the single tournament
+    valid integer NOT NULL DEFAULT 0, -- tinyint(4)
+    type text, -- varchar(20)
+    color text, -- varchar(6)
+    pool_template integer -- int(10)
 );
 
+-- uo_pool
 CREATE TABLE pools (
-    id integer PRIMARY KEY,
-    pool_id integer NOT NULL UNIQUE, -- external id
-    division_id integer NOT NULL REFERENCES divisions (id), -- Pool.series_id is required
-    name text NOT NULL,
-    ordering text NOT NULL, -- Pool.ordering is a required field
-    pool_type integer NOT NULL -- Pool.type is a required field
+    pool_id integer PRIMARY KEY, -- int(10)
+    name text, -- varchar(50)
+    ordering text, -- varchar(20)
+    visible integer NOT NULL, -- tinyint(1)
+    continuingpool integer NOT NULL, -- tinyint(1)
+    placementpool integer DEFAULT 0, -- tinyint(1)
+    teams integer, -- int(10); configured team count
+    mvgames integer, -- int(10)
+    timeoutlen integer, -- int(10)
+    halftime integer, -- int(10)
+    winningscore integer, -- smallint(5)
+    timecap integer, -- int(10)
+    scorecap integer, -- smallint(5)
+    played integer NOT NULL, -- tinyint(1)
+    addscore integer, -- int(10)
+    halftimescore integer, -- int(10)
+    timeouts integer, -- int(10)
+    timeoutsper text, -- varchar(5)
+    timeoutsovertime integer, -- int(10)
+    timeoutstimecap text, -- varchar(5)
+    betweenpointslen integer, -- int(10)
+    series integer REFERENCES divisions (series_id), -- int(10)
+    type integer NOT NULL DEFAULT 1, -- int(10)
+    timeslot integer, -- int(10)
+    color text, -- varchar(6)
+    forfeitscore integer, -- int(10)
+    forfeitagainst integer, -- int(10)
+    follower integer -- int(10)
 );
 
-CREATE TABLE countries (
-    id integer PRIMARY KEY,
-    country_ext_id integer NOT NULL UNIQUE, -- stable across events per the spec
-    name text NOT NULL,
-    abbreviation text NOT NULL, -- Country.abbreviation is a required field
-    flag_file text NOT NULL -- Country.flagfile is a required field
+-- uo_reservation
+CREATE TABLE reservations (
+    id integer PRIMARY KEY, -- int(10)
+    location integer NOT NULL REFERENCES locations (id), -- int(10)
+    fieldname text, -- varchar(50)
+    reservationgroup text, -- varchar(50)
+    starttime text, -- datetime
+    endtime text, -- datetime
+    season text, -- varchar(10)
+    timeslots text, -- varchar(100)
+    date text -- datetime
 );
 
+-- uo_team
 CREATE TABLE teams (
-    id integer PRIMARY KEY,
-    team_id integer NOT NULL UNIQUE, -- external id
-    division_id integer NOT NULL REFERENCES divisions (id), -- ReferenceTeam.series is required
-    pool_id integer REFERENCES pools (id), -- nullable: no source until the roster/team-detail slice
-    country_id integer NOT NULL REFERENCES countries (id), -- ReferenceTeam.country is required
-    name text NOT NULL,
-    abbreviation text, -- ReferenceTeam.abbreviation isn't in its required list
-    club text, -- ReferenceTeam.club isn't in its required list
-    seed integer NOT NULL, -- TeamStats.seed is required
-    games_played integer NOT NULL, -- TeamStats.games is required
-    wins integer NOT NULL,
-    losses integer NOT NULL,
-    points_for integer NOT NULL, -- TeamStats.for
-    points_against integer NOT NULL, -- TeamStats.against
-    spirit_total integer, -- TeamStats.spirit: only sent when the event publishes spirit
-    spirit_avg real, -- TeamStats.spiritavg: same condition
-    final_standing integer NOT NULL,
-    final_standing_calculated integer NOT NULL
+    team_id integer PRIMARY KEY, -- int(10)
+    name text, -- varchar(50)
+    pool integer REFERENCES pools (pool_id), -- int(10)
+    club integer REFERENCES club (club_id), -- int(10)
+    rank integer, -- smallint(5); seed going into the event
+    activerank integer, -- int(10)
+    valid integer NOT NULL, -- tinyint(1)
+    series integer REFERENCES divisions (series_id), -- int(10)
+    country integer REFERENCES countries (country_id), -- int(10)
+    abbreviation text, -- varchar(15)
+    -- final_standing/final_standing_calculated kept as reported
+    -- final_standing can be an organizer override, and *_calculated reflects
+    -- bracket-resolution logic this archive doesn't model
+    final_standing integer,
+    final_standing_calculated integer
 );
 
+-- uo_player
 CREATE TABLE players (
-    id integer PRIMARY KEY,
-    player_id integer NOT NULL UNIQUE, -- external id
-    team_id integer NOT NULL REFERENCES teams (id),
-    first_name text NOT NULL, -- PlayerStats.firstname is a required field
-    last_name text NOT NULL, -- PlayerStats.lastname is a required field
-    jersey_num integer,
-    games_played integer,
-    goals integer,
-    assists integer,
-    callahans integer
+    player_id integer PRIMARY KEY, -- int(10)
+    firstname text, -- varchar(40) DEFAULT ''
+    lastname text, -- varchar(40) DEFAULT ''
+    team integer REFERENCES teams (team_id), -- int(10)
+    num integer, -- tinyint(3) unsigned
+    accreditation_id text, -- varchar(150)
+    accredited integer NOT NULL DEFAULT 0, -- tinyint(1)
+    profile_id integer, -- int(10)
+    -- games_played kept as reported
+    -- player can play a game recording zero goals or assists
+    -- so it isn't derivable from the goals table alone
+    -- goals/assists/callahans are NOT kept here they are recorded in goals table
+    games_played integer
 );
 
+-- uo_game
 CREATE TABLE games (
-    id integer PRIMARY KEY,
-    game_id integer NOT NULL UNIQUE, -- external id
-    division_id integer REFERENCES divisions (id),
-    pool_id integer REFERENCES pools (id),
-    home_team_id integer REFERENCES teams (id),
-    away_team_id integer REFERENCES teams (id),
-    home_score integer,
-    away_score integer,
-    status text, -- scheduled | ongoing | completed
-    scheduled_at text, -- tournament-local; no time_utc on this spec line
-    field_name text,
-    home_sotg integer,
-    away_sotg integer
+    game_id integer PRIMARY KEY, -- int(10)
+    hometeam integer REFERENCES teams (team_id), -- int(10)
+    visitorteam integer REFERENCES teams (team_id), -- int(10)
+    homescore integer, -- smallint(5); absent (not just null) for a scheduled game
+    visitorscore integer, -- smallint(5)
+    reservation integer REFERENCES reservations (id), -- int(10)
+    time text, -- datetime; absent for an unscheduled game
+    pool integer REFERENCES pools (pool_id), -- int(10)
+    valid integer NOT NULL, -- tinyint(1)
+    halftime integer, -- int(10)
+    official text, -- varchar(50)
+    respteam integer REFERENCES teams (team_id), -- int(10)
+    resppers integer, -- int(10)
+    homesotg integer, -- int(10)
+    visitorsotg integer, -- int(10)
+    isongoing integer DEFAULT 0, -- tinyint(1)
+    scheduling_name_home integer, -- int(10)
+    scheduling_name_visitor integer, -- int(10)
+    name integer, -- int(10); scheduling-name id, resolved via uo_scheduling_name (not modeled)
+    timeslot integer, -- int(10)
+    defenses_total integer, -- smallint(5)
+    homedefenses integer, -- smallint(5)
+    visitordefenses integer, -- smallint(5)
+    islive integer DEFAULT 0, -- tinyint(1)
+    liveurl text -- varchar(255)
 );
 
+-- uo_goal
 CREATE TABLE goals (
-    id integer PRIMARY KEY,
-    game_id integer NOT NULL REFERENCES games (id),
-    seq integer NOT NULL, -- Goal.num
-    is_home_goal integer NOT NULL, -- 0/1
-    is_callahan integer NOT NULL DEFAULT 0,
-    scorer_player_id integer REFERENCES players (id),
-    assist_player_id integer REFERENCES players (id),
-    home_score_after integer,
-    away_score_after integer,
-    game_time_seconds integer,
-    UNIQUE (game_id, seq)
+    game_id integer NOT NULL REFERENCES games (game_id), -- int(10)
+    num integer NOT NULL, -- smallint(5)
+    assist integer REFERENCES players (player_id), -- int(10)
+    scorer integer REFERENCES players (player_id), -- int(10)
+    time integer, -- smallint(5); seconds from the start of the game
+    homescore integer, -- tinyint(3) unsigned; running score after this goal
+    visitorscore integer, -- tinyint(3) unsigned
+    ishomegoal integer NOT NULL, -- tinyint(1)
+    iscallahan integer NOT NULL, -- tinyint(1)
+    PRIMARY KEY (game_id, num)
 );
 
+-- uo_spirit
+-- One row per (game, submitting team)
+-- the recipient isn't a stored column, it's implied as the other team
 CREATE TABLE spirit_scores (
-    id integer PRIMARY KEY,
-    game_id integer NOT NULL REFERENCES games (id),
-    from_team_id integer NOT NULL REFERENCES teams (id), -- team giving the score
-    to_team_id integer NOT NULL REFERENCES teams (id), -- team receiving
-    total integer,
-    comments text,
-    is_complete integer, -- TeamSpiritGame.is_complete, 0/1, nullable
-    is_visible integer, -- TeamSpiritGame.is_visible, 0/1, nullable
-    UNIQUE (game_id, from_team_id, to_team_id)
-);
-
--- Keyed by category_key rather than fixed cat1..cat5 columns even though this spec line
--- always sends exactly cat1-cat5 -- keeps the read/write code identical to v1917's schema,
--- which is otherwise the same shape.
-CREATE TABLE spirit_category_scores (
-    spirit_score_id integer NOT NULL REFERENCES spirit_scores (id),
-    category_key text NOT NULL, -- 'cat1'..'cat5'
-    score integer NOT NULL,
-    PRIMARY KEY (spirit_score_id, category_key)
+    game_id integer NOT NULL REFERENCES games (game_id), -- int(10)
+    team_id integer NOT NULL REFERENCES teams (team_id), -- int(10); the team that submitted this score
+    cat1 integer NOT NULL DEFAULT 0, -- tinyint(2)
+    cat2 integer NOT NULL DEFAULT 0, -- tinyint(2)
+    cat3 integer NOT NULL DEFAULT 0, -- tinyint(2)
+    cat4 integer NOT NULL DEFAULT 0, -- tinyint(2)
+    cat5 integer NOT NULL DEFAULT 0, -- tinyint(2)
+    comments text, -- TEXT DEFAULT NULL
+    PRIMARY KEY (game_id, team_id)
 );
 

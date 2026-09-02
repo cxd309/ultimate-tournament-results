@@ -8,119 +8,189 @@ import (
 	"database/sql"
 )
 
+type Club struct {
+	ClubID       int64          `json:"club_id"`
+	Name         sql.NullString `json:"name"`
+	Contacts     sql.NullString `json:"contacts"`
+	City         sql.NullString `json:"city"`
+	Country      sql.NullInt64  `json:"country"`
+	Story        sql.NullString `json:"story"`
+	Achievements sql.NullString `json:"achievements"`
+	Image        sql.NullInt64  `json:"image"`
+	Valid        int64          `json:"valid"`
+	ProfileImage sql.NullString `json:"profile_image"`
+	Founded      sql.NullInt64  `json:"founded"`
+}
+
 type Country struct {
-	ID           int64  `json:"id"`
-	CountryExtID int64  `json:"country_ext_id"`
-	Name         string `json:"name"`
-	Abbreviation string `json:"abbreviation"`
-	FlagFile     string `json:"flag_file"`
+	CountryID    int64          `json:"country_id"`
+	Name         string         `json:"name"`
+	Abbreviation sql.NullString `json:"abbreviation"`
+	FlagFile     sql.NullString `json:"flag_file"`
+	Valid        int64          `json:"valid"`
 }
 
 type Division struct {
-	ID       int64  `json:"id"`
-	SeriesID int64  `json:"series_id"`
-	Name     string `json:"name"`
-	Ordering string `json:"ordering"`
+	SeriesID     int64          `json:"series_id"`
+	Name         sql.NullString `json:"name"`
+	Ordering     sql.NullString `json:"ordering"`
+	Season       sql.NullString `json:"season"`
+	Valid        int64          `json:"valid"`
+	Type         sql.NullString `json:"type"`
+	Color        sql.NullString `json:"color"`
+	PoolTemplate sql.NullInt64  `json:"pool_template"`
 }
 
 type Game struct {
-	ID          int64          `json:"id"`
-	GameID      int64          `json:"game_id"`
-	DivisionID  sql.NullInt64  `json:"division_id"`
-	PoolID      sql.NullInt64  `json:"pool_id"`
-	HomeTeamID  sql.NullInt64  `json:"home_team_id"`
-	AwayTeamID  sql.NullInt64  `json:"away_team_id"`
-	HomeScore   sql.NullInt64  `json:"home_score"`
-	AwayScore   sql.NullInt64  `json:"away_score"`
-	Status      sql.NullString `json:"status"`
-	ScheduledAt sql.NullString `json:"scheduled_at"`
-	FieldName   sql.NullString `json:"field_name"`
-	HomeSotg    sql.NullInt64  `json:"home_sotg"`
-	AwaySotg    sql.NullInt64  `json:"away_sotg"`
+	GameID                int64          `json:"game_id"`
+	Hometeam              sql.NullInt64  `json:"hometeam"`
+	Visitorteam           sql.NullInt64  `json:"visitorteam"`
+	Homescore             sql.NullInt64  `json:"homescore"`
+	Visitorscore          sql.NullInt64  `json:"visitorscore"`
+	Reservation           sql.NullInt64  `json:"reservation"`
+	Time                  sql.NullString `json:"time"`
+	Pool                  sql.NullInt64  `json:"pool"`
+	Valid                 int64          `json:"valid"`
+	Halftime              sql.NullInt64  `json:"halftime"`
+	Official              sql.NullString `json:"official"`
+	Respteam              sql.NullInt64  `json:"respteam"`
+	Resppers              sql.NullInt64  `json:"resppers"`
+	Homesotg              sql.NullInt64  `json:"homesotg"`
+	Visitorsotg           sql.NullInt64  `json:"visitorsotg"`
+	Isongoing             sql.NullInt64  `json:"isongoing"`
+	SchedulingNameHome    sql.NullInt64  `json:"scheduling_name_home"`
+	SchedulingNameVisitor sql.NullInt64  `json:"scheduling_name_visitor"`
+	Name                  sql.NullInt64  `json:"name"`
+	Timeslot              sql.NullInt64  `json:"timeslot"`
+	DefensesTotal         sql.NullInt64  `json:"defenses_total"`
+	Homedefenses          sql.NullInt64  `json:"homedefenses"`
+	Visitordefenses       sql.NullInt64  `json:"visitordefenses"`
+	Islive                sql.NullInt64  `json:"islive"`
+	Liveurl               sql.NullString `json:"liveurl"`
 }
 
 type Goal struct {
-	ID              int64         `json:"id"`
-	GameID          int64         `json:"game_id"`
-	Seq             int64         `json:"seq"`
-	IsHomeGoal      int64         `json:"is_home_goal"`
-	IsCallahan      int64         `json:"is_callahan"`
-	ScorerPlayerID  sql.NullInt64 `json:"scorer_player_id"`
-	AssistPlayerID  sql.NullInt64 `json:"assist_player_id"`
-	HomeScoreAfter  sql.NullInt64 `json:"home_score_after"`
-	AwayScoreAfter  sql.NullInt64 `json:"away_score_after"`
-	GameTimeSeconds sql.NullInt64 `json:"game_time_seconds"`
+	GameID       int64         `json:"game_id"`
+	Num          int64         `json:"num"`
+	Assist       sql.NullInt64 `json:"assist"`
+	Scorer       sql.NullInt64 `json:"scorer"`
+	Time         sql.NullInt64 `json:"time"`
+	Homescore    sql.NullInt64 `json:"homescore"`
+	Visitorscore sql.NullInt64 `json:"visitorscore"`
+	Ishomegoal   int64         `json:"ishomegoal"`
+	Iscallahan   int64         `json:"iscallahan"`
+}
+
+type Location struct {
+	ID      int64           `json:"id"`
+	Name    string          `json:"name"`
+	Fields  int64           `json:"fields"`
+	Indoor  int64           `json:"indoor"`
+	Address sql.NullString  `json:"address"`
+	Lat     sql.NullFloat64 `json:"lat"`
+	Lng     sql.NullFloat64 `json:"lng"`
 }
 
 type Player struct {
-	ID          int64         `json:"id"`
-	PlayerID    int64         `json:"player_id"`
-	TeamID      int64         `json:"team_id"`
-	FirstName   string        `json:"first_name"`
-	LastName    string        `json:"last_name"`
-	JerseyNum   sql.NullInt64 `json:"jersey_num"`
-	GamesPlayed sql.NullInt64 `json:"games_played"`
-	Goals       sql.NullInt64 `json:"goals"`
-	Assists     sql.NullInt64 `json:"assists"`
-	Callahans   sql.NullInt64 `json:"callahans"`
+	PlayerID        int64          `json:"player_id"`
+	Firstname       sql.NullString `json:"firstname"`
+	Lastname        sql.NullString `json:"lastname"`
+	Team            sql.NullInt64  `json:"team"`
+	Num             sql.NullInt64  `json:"num"`
+	AccreditationID sql.NullString `json:"accreditation_id"`
+	Accredited      int64          `json:"accredited"`
+	ProfileID       sql.NullInt64  `json:"profile_id"`
+	GamesPlayed     sql.NullInt64  `json:"games_played"`
 }
 
 type Pool struct {
-	ID         int64  `json:"id"`
-	PoolID     int64  `json:"pool_id"`
-	DivisionID int64  `json:"division_id"`
-	Name       string `json:"name"`
-	Ordering   string `json:"ordering"`
-	PoolType   int64  `json:"pool_type"`
+	PoolID           int64          `json:"pool_id"`
+	Name             sql.NullString `json:"name"`
+	Ordering         sql.NullString `json:"ordering"`
+	Visible          int64          `json:"visible"`
+	Continuingpool   int64          `json:"continuingpool"`
+	Placementpool    sql.NullInt64  `json:"placementpool"`
+	Teams            sql.NullInt64  `json:"teams"`
+	Mvgames          sql.NullInt64  `json:"mvgames"`
+	Timeoutlen       sql.NullInt64  `json:"timeoutlen"`
+	Halftime         sql.NullInt64  `json:"halftime"`
+	Winningscore     sql.NullInt64  `json:"winningscore"`
+	Timecap          sql.NullInt64  `json:"timecap"`
+	Scorecap         sql.NullInt64  `json:"scorecap"`
+	Played           int64          `json:"played"`
+	Addscore         sql.NullInt64  `json:"addscore"`
+	Halftimescore    sql.NullInt64  `json:"halftimescore"`
+	Timeouts         sql.NullInt64  `json:"timeouts"`
+	Timeoutsper      sql.NullString `json:"timeoutsper"`
+	Timeoutsovertime sql.NullInt64  `json:"timeoutsovertime"`
+	Timeoutstimecap  sql.NullString `json:"timeoutstimecap"`
+	Betweenpointslen sql.NullInt64  `json:"betweenpointslen"`
+	Series           sql.NullInt64  `json:"series"`
+	Type             int64          `json:"type"`
+	Timeslot         sql.NullInt64  `json:"timeslot"`
+	Color            sql.NullString `json:"color"`
+	Forfeitscore     sql.NullInt64  `json:"forfeitscore"`
+	Forfeitagainst   sql.NullInt64  `json:"forfeitagainst"`
+	Follower         sql.NullInt64  `json:"follower"`
 }
 
-type SpiritCategoryScore struct {
-	SpiritScoreID int64  `json:"spirit_score_id"`
-	CategoryKey   string `json:"category_key"`
-	Score         int64  `json:"score"`
+type Reservation struct {
+	ID               int64          `json:"id"`
+	Location         int64          `json:"location"`
+	Fieldname        sql.NullString `json:"fieldname"`
+	Reservationgroup sql.NullString `json:"reservationgroup"`
+	Starttime        sql.NullString `json:"starttime"`
+	Endtime          sql.NullString `json:"endtime"`
+	Season           sql.NullString `json:"season"`
+	Timeslots        sql.NullString `json:"timeslots"`
+	Date             sql.NullString `json:"date"`
 }
 
 type SpiritScore struct {
-	ID         int64          `json:"id"`
-	GameID     int64          `json:"game_id"`
-	FromTeamID int64          `json:"from_team_id"`
-	ToTeamID   int64          `json:"to_team_id"`
-	Total      sql.NullInt64  `json:"total"`
-	Comments   sql.NullString `json:"comments"`
-	IsComplete sql.NullInt64  `json:"is_complete"`
-	IsVisible  sql.NullInt64  `json:"is_visible"`
+	GameID   int64          `json:"game_id"`
+	TeamID   int64          `json:"team_id"`
+	Cat1     int64          `json:"cat1"`
+	Cat2     int64          `json:"cat2"`
+	Cat3     int64          `json:"cat3"`
+	Cat4     int64          `json:"cat4"`
+	Cat5     int64          `json:"cat5"`
+	Comments sql.NullString `json:"comments"`
 }
 
 type Team struct {
-	ID                      int64           `json:"id"`
-	TeamID                  int64           `json:"team_id"`
-	DivisionID              int64           `json:"division_id"`
-	PoolID                  sql.NullInt64   `json:"pool_id"`
-	CountryID               int64           `json:"country_id"`
-	Name                    string          `json:"name"`
-	Abbreviation            sql.NullString  `json:"abbreviation"`
-	Club                    sql.NullString  `json:"club"`
-	Seed                    int64           `json:"seed"`
-	GamesPlayed             int64           `json:"games_played"`
-	Wins                    int64           `json:"wins"`
-	Losses                  int64           `json:"losses"`
-	PointsFor               int64           `json:"points_for"`
-	PointsAgainst           int64           `json:"points_against"`
-	SpiritTotal             sql.NullInt64   `json:"spirit_total"`
-	SpiritAvg               sql.NullFloat64 `json:"spirit_avg"`
-	FinalStanding           int64           `json:"final_standing"`
-	FinalStandingCalculated int64           `json:"final_standing_calculated"`
+	TeamID                  int64          `json:"team_id"`
+	Name                    sql.NullString `json:"name"`
+	Pool                    sql.NullInt64  `json:"pool"`
+	Club                    sql.NullInt64  `json:"club"`
+	Rank                    sql.NullInt64  `json:"rank"`
+	Activerank              sql.NullInt64  `json:"activerank"`
+	Valid                   int64          `json:"valid"`
+	Series                  sql.NullInt64  `json:"series"`
+	Country                 sql.NullInt64  `json:"country"`
+	Abbreviation            sql.NullString `json:"abbreviation"`
+	FinalStanding           sql.NullInt64  `json:"final_standing"`
+	FinalStandingCalculated sql.NullInt64  `json:"final_standing_calculated"`
 }
 
 type Tournament struct {
-	EventName  string         `json:"event_name"`
-	Host       string         `json:"host"`
-	SeasonID   string         `json:"season_id"`
-	BasePath   string         `json:"base_path"`
-	AppVersion sql.NullString `json:"app_version"`
-	StartDate  sql.NullString `json:"start_date"`
-	EndDate    sql.NullString `json:"end_date"`
-	Timezone   sql.NullString `json:"timezone"`
-	Status     sql.NullString `json:"status"`
-	ArchivedAt string         `json:"archived_at"`
+	SeasonID         string         `json:"season_id"`
+	Name             sql.NullString `json:"name"`
+	Starttime        sql.NullString `json:"starttime"`
+	Endtime          sql.NullString `json:"endtime"`
+	Iscurrent        int64          `json:"iscurrent"`
+	Enrollopen       int64          `json:"enrollopen"`
+	EnrollDeadline   sql.NullString `json:"enroll_deadline"`
+	Type             sql.NullString `json:"type"`
+	Istournament     sql.NullInt64  `json:"istournament"`
+	Isinternational  sql.NullInt64  `json:"isinternational"`
+	Isnationalteams  sql.NullInt64  `json:"isnationalteams"`
+	Organizer        sql.NullString `json:"organizer"`
+	Category         sql.NullString `json:"category"`
+	Spiritpoints     sql.NullInt64  `json:"spiritpoints"`
+	Showspiritpoints sql.NullInt64  `json:"showspiritpoints"`
+	Timezone         sql.NullString `json:"timezone"`
+	Host             string         `json:"host"`
+	BasePath         string         `json:"base_path"`
+	AppVersion       sql.NullString `json:"app_version"`
+	ArchivedAt       string         `json:"archived_at"`
 }

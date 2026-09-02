@@ -35,39 +35,18 @@ func run() error {
 		return fmt.Errorf("-host is required")
 	}
 
-	client := v1914.NewClient(*host, *basePath)
 	ctx := context.Background()
+	client := v1914.NewClient(*host, *basePath)
 
-	hb, err := client.FetchHeartbeat(ctx)
+	snap, err := v1914.Gather(ctx, client)
 	if err != nil {
-		return fmt.Errorf("fetch heartbeat: %w", err)
+		return fmt.Errorf("gather: %w", err)
 	}
-	fmt.Printf("heartbeat: app_version=%s season_id=%s\n", hb.AppVersion, hb.Config.LiveSeasonID)
-
-	ref, err := client.FetchReference(ctx)
-	if err != nil {
-		return fmt.Errorf("fetch reference: %w", err)
-	}
-	fmt.Printf("reference: name=%q divisions=%d pools=%d countries=%d\n", ref.Season.Name, len(ref.Series), len(ref.Pools), len(ref.Countries))
-
-	teams, err := client.FetchTeams(ctx)
-	if err != nil {
-		return fmt.Errorf("fetch teams: %w", err)
-	}
-	fmt.Printf("teams: %d\n", len(teams.Teams))
-
-	detailByTeamID := make(map[int64]*v1914.TeamDetailResponse, len(teams.Teams))
-	for _, ts := range teams.Teams {
-		detail, err := client.FetchTeamDetail(ctx, ts.TeamID)
-		if err != nil {
-			return fmt.Errorf("fetch team detail %d: %w", ts.TeamID, err)
-		}
-		detailByTeamID[detail.TeamID] = detail
-	}
-	fmt.Printf("team details: %d\n", len(detailByTeamID))
+	fmt.Printf("gathered: season_id=%s name=%q divisions=%d pools=%d countries=%d teams=%d\n",
+		snap.Heartbeat.Config.LiveSeasonID, snap.Reference.Season.Name, len(snap.Reference.Series), len(snap.Reference.Pools), len(snap.Reference.Countries), len(snap.Reference.Teams))
 
 	if *slug == "" {
-		*slug = strings.ToLower(hb.Config.LiveSeasonID)
+		*slug = strings.ToLower(snap.Heartbeat.Config.LiveSeasonID)
 	}
 	if *dbPath == "" {
 		*dbPath = fmt.Sprintf("data/%s.db", *slug)
@@ -95,23 +74,15 @@ func run() error {
 	}
 
 	s := store.New(sqlDB)
-
-	if err := v1914.ImportTournament(ctx, s, *host, *basePath, hb, ref); err != nil {
-		return fmt.Errorf("import tournament: %w", err)
-	}
-	refIDs, err := v1914.ImportReferenceData(ctx, s, ref)
-	if err != nil {
-		return fmt.Errorf("import reference data: %w", err)
-	}
-	if err := v1914.ImportTeams(ctx, s, refIDs, ref, teams, detailByTeamID); err != nil {
-		return fmt.Errorf("import teams: %w", err)
+	if err := v1914.Import(ctx, s, *host, *basePath, snap); err != nil {
+		return fmt.Errorf("import: %w", err)
 	}
 
 	tournament, err := s.GetTournament(ctx)
 	if err != nil {
 		return fmt.Errorf("read back tournament: %w", err)
 	}
-	fmt.Printf("wrote %s: event_name=%q season_id=%s start_date=%s\n", *dbPath, tournament.EventName, tournament.SeasonID, tournament.StartDate)
+	fmt.Printf("wrote %s: name=%q season_id=%s start=%s\n", *dbPath, tournament.Name, tournament.SeasonID, tournament.StartTime)
 
 	return nil
 }

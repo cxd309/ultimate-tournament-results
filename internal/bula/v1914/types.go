@@ -3,10 +3,7 @@
 // it can fetch a response and import into a internal/db/v1914 schema
 package v1914
 
-import (
-	"encoding/json"
-	"fmt"
-)
+import "github.com/cxd309/ultimate-tournament-results/internal/convert"
 
 // HeartbeatResponse is the response of GET {basePath}_heartbeat.json
 // See openapi-1.9.14.yaml #/components/schemas/Heartbeat
@@ -29,11 +26,12 @@ type HeartbeatConfig struct {
 // ReferenceResponse is the response of GET {basePath}{seasonId}_reference.json
 // See openapi-1.9.14.yaml #/components/schemas/ReferenceResponse
 type ReferenceResponse struct {
-	Season    Season          `json:"season"`
-	Series    []Series        `json:"series"`
-	Pools     []Pool          `json:"pools"`
-	Teams     []ReferenceTeam `json:"teams"`
-	Countries []Country       `json:"countries"`
+	Season       Season          `json:"season"`
+	Series       []Series        `json:"series"`
+	Pools        []Pool          `json:"pools"`
+	Teams        []ReferenceTeam `json:"teams"`
+	Countries    []Country       `json:"countries"`
+	Reservations []Reservation   `json:"reservations"`
 }
 
 // Season is ReferenceResponse.Season
@@ -55,11 +53,15 @@ type Series struct {
 
 // Pool is one entry in ReferenceResponse.Pools, a pool or bracket within a division
 type Pool struct {
-	PoolID   int64  `json:"pool_id"`
-	PoolName string `json:"poolname"`
-	SeriesID int64  `json:"series_id"`
-	Ordering string `json:"ordering"`
-	Type     int64  `json:"type"`
+	PoolID        int64           `json:"pool_id"`
+	PoolName      string          `json:"poolname"`
+	SeriesID      int64           `json:"series_id"`
+	Ordering      string          `json:"ordering"`
+	Type          int64           `json:"type"`
+	Visible       convert.IntBool `json:"visible"`
+	Played        convert.IntBool `json:"played"`
+	Placementpool convert.IntBool `json:"placementpool"`
+	Continuing    convert.IntBool `json:"continuingpool"`
 }
 
 // Country is one entry in ReferenceResponse.Countries
@@ -71,56 +73,30 @@ type Country struct {
 }
 
 // ReferenceTeam is one entry in ReferenceResponse.Teams
-// Only Abbreviation and Club are used from here
-// all other fields will come from TeamStats which is more complete
+// Has everything the teams table needs except pool/valid,
+// which only come from the team-detail endpoint.
 type ReferenceTeam struct {
-	TeamID       int64  `json:"team_id"`
-	Abbreviation string `json:"abbreviation"`
-	Club         string `json:"club"`
+	TeamID                  int64  `json:"team_id"`
+	Name                    string `json:"name"`
+	Abbreviation            string `json:"abbreviation"`
+	Series                  int64  `json:"series"`
+	Country                 int64  `json:"country"`
+	Rank                    int64  `json:"rank"`
+	FinalStanding           int64  `json:"final_standing"`
+	FinalStandingCalculated int64  `json:"final_standing_calculated"`
+	Club                    string `json:"club"`
 }
 
-// TeamsResponse is the response of GET {basePath}{seasonId}_teams.json
-// See openapi-1.9.14.yaml #/components/schemas/TeamsResponse
-type TeamsResponse struct {
-	Teams map[string]TeamStats `json:"teams"` // keyed by team_id as a string
-}
-
-// TeamStats is one entry in TeamsResponse.Teams
-type TeamStats struct {
-	TeamID                  int64       `json:"team_id"`
-	Name                    string      `json:"name"`
-	Series                  int64       `json:"series"`
-	Country                 int64       `json:"country"`
-	Seed                    int64       `json:"seed"`
-	Games                   int64       `json:"games"`
-	Wins                    int64       `json:"wins"`
-	Losses                  int64       `json:"losses"`
-	For                     int64       `json:"for"`
-	Against                 int64       `json:"against"`
-	FinalStanding           int64       `json:"final_standing"`
-	FinalStandingCalculated int64       `json:"final_standing_calculated"`
-	Spirit                  SpiritValue `json:"spirit"`    // only sent when the event publishes spirit
-	SpiritAvg               SpiritValue `json:"spiritavg"` // same condition
-}
-
-// SpiritValue decodes a spirit total/average field
-// This is normally a JSON number but is "N/A" for a team marked invalid
-// Valid is false for "N/A" or where an event does not publish spirit
-type SpiritValue struct {
-	Value float64
-	Valid bool
-}
-
-func (v *SpiritValue) UnmarshalJSON(data []byte) error {
-	if string(data) == `"N/A"` {
-		v.Value, v.Valid = 0, false
-		return nil
-	}
-	if err := json.Unmarshal(data, &v.Value); err != nil {
-		return fmt.Errorf("spirit value: %w", err)
-	}
-	v.Valid = true
-	return nil
+// Reservation is one entry in ReferenceResponse.Reservations
+// it represents a playing field on a day
+// Unlike uo_reservation itself, the API resolves the venue name (LocationName)
+// straight into this object rather than leaving it as a bare id to join.
+type Reservation struct {
+	ID               int64  `json:"id"`
+	FieldName        string `json:"fieldname"`
+	ReservationGroup string `json:"reservationgroup"`
+	Location         int64  `json:"location"`
+	LocationName     string `json:"name"`
 }
 
 // TeamDetailResponse is the response of GET {basePath}{seasonId}_teams_{teamId}.json
@@ -129,9 +105,10 @@ func (v *SpiritValue) UnmarshalJSON(data []byte) error {
 // Only the fields this archiver currently uses are modeled here
 // spirit given/received belongs to a later slice, not this one.
 type TeamDetailResponse struct {
-	TeamID  int64         `json:"team_id"`
-	Pool    int64         `json:"pool"` // external pool id; 0 means not currently in a pool
-	Players []PlayerStats `json:"players"`
+	TeamID  int64           `json:"team_id"`
+	Pool    int64           `json:"pool"` // external pool id; 0 means not currently in a pool
+	Valid   convert.IntBool `json:"valid"`
+	Players []PlayerStats   `json:"players"`
 }
 
 // PlayerStats is one entry in TeamDetailResponse.Players
@@ -144,7 +121,4 @@ type PlayerStats struct {
 	LastName  string `json:"lastname"`
 	Num       *int64 `json:"num"`
 	Games     *int64 `json:"games"`
-	Done      *int64 `json:"done"`  // goals
-	Fedin     *int64 `json:"fedin"` // assists
-	Callahan  *int64 `json:"callahan"`
 }

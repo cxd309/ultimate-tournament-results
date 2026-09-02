@@ -1,6 +1,5 @@
-// Package store is the direct interface to a 1.9.14 tournament's SQLite archive. It wraps
-// internal/db/v1914's generated queries and translates to and from plain Go types, so that
-// nothing outside this package needs to know sql.NullString/sql.NullInt64 exist.
+// Package store is the direct interface to a 1.9.14 tournament's SQLite archive.
+// Wraps internal/db/ generated queries and translates to and from plain Go types
 package store
 
 import (

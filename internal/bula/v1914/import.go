@@ -8,166 +8,201 @@ import (
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v1914"
 )
 
-// ImportTournament writes the single row in the tournament table
+// Import writes an entire Snapshot (see Gather) to the store, in FK-dependency order:
+// divisions before pools, locations before reservations, everything before teams. This
+// is the package's only exported write entrypoint -- the per-table functions below are
+// internal building blocks, not meant to be called individually from outside.
+func Import(ctx context.Context, s *store.Store, host, basePath string, snap *Snapshot) error {
+	if err := importTournament(ctx, s, host, basePath, snap.Heartbeat, snap.Reference); err != nil {
+		return fmt.Errorf("import tournament: %w", err)
+	}
+	if err := importDivisions(ctx, s, snap.Reference); err != nil {
+		return fmt.Errorf("import divisions: %w", err)
+	}
+	if err := importCountries(ctx, s, snap.Reference); err != nil {
+		return fmt.Errorf("import countries: %w", err)
+	}
+	if err := importLocations(ctx, s, snap.Reference); err != nil {
+		return fmt.Errorf("import locations: %w", err)
+	}
+	if err := importReservations(ctx, s, snap.Reference); err != nil {
+		return fmt.Errorf("import reservations: %w", err)
+	}
+	if err := importPools(ctx, s, snap.Reference); err != nil {
+		return fmt.Errorf("import pools: %w", err)
+	}
+	if err := importTeams(ctx, s, snap.Reference, snap.TeamDetailByID); err != nil {
+		return fmt.Errorf("import teams: %w", err)
+	}
+	return nil
+}
+
+// importTournament write the single row in the tournament table
 //
-// sourced from responses including:
-// the heartbeat (host, base path, app version)
-// the reference season block (name, dates, timezone, status)
+// sourced from:
+// heartbeat endpoint (host, base path, app version)
+// reference endpoint season[]
 //
 // season.name is the reliable event name
 // heartbeat's config.TOURNAMENT_NAME "may be an empty string even on a live event."
-func ImportTournament(ctx context.Context, s *store.Store, host, basePath string, hb *HeartbeatResponse, ref *ReferenceResponse) error {
+func importTournament(ctx context.Context, s *store.Store, host, basePath string, hb *HeartbeatResponse, ref *ReferenceResponse) error {
 	return s.InsertTournament(ctx, store.Tournament{
-		EventName:  ref.Season.Name,
-		Host:       host,
 		SeasonID:   hb.Config.LiveSeasonID,
+		Name:       ref.Season.Name,
+		StartTime:  ref.Season.StartTime,
+		EndTime:    ref.Season.EndTime,
+		Timezone:   ref.Season.Timezone,
+		Host:       host,
 		BasePath:   basePath,
 		AppVersion: hb.AppVersion,
-		StartDate:  ref.Season.StartTime,
-		EndDate:    ref.Season.EndTime,
-		Timezone:   ref.Season.Timezone,
-		Status:     ref.Season.Status,
 		ArchivedAt: time.Now().UTC().Format(time.RFC3339),
 	})
 }
 
-// ReferenceIDs maps external ids from the reference endpoint to the internal ids
-// InsertDivision/InsertCountry assigned, so later imports (teams, games, ...) can
-// resolve their foreign keys without re-querying the store.
-type ReferenceIDs struct {
-	DivisionIDBySeriesID map[int64]int64
-	CountryIDByCountryID map[int64]int64
-	PoolIDByPoolID       map[int64]int64
-}
-
-// ImportReferenceData writes divisions, pools and countries from the reference endpoint
+// importDivisions write the divisions table
 //
-// Divisions are written first so pools can resolve their division's internal id from the
-// external series_id.
-func ImportReferenceData(ctx context.Context, s *store.Store, ref *ReferenceResponse) (ReferenceIDs, error) {
-	ids := ReferenceIDs{
-		DivisionIDBySeriesID: make(map[int64]int64, len(ref.Series)),
-		CountryIDByCountryID: make(map[int64]int64, len(ref.Countries)),
-		PoolIDByPoolID:       make(map[int64]int64, len(ref.Pools)),
-	}
-
+// sourced from:
+// reference endpoint series[]
+func importDivisions(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
 	for _, series := range ref.Series {
-		division, err := s.InsertDivision(ctx, store.Division{
+		if err := s.InsertDivision(ctx, store.Division{
 			SeriesID: series.SeriesID,
 			Name:     series.Name,
 			Ordering: series.Ordering,
-		})
-		if err != nil {
-			return ReferenceIDs{}, fmt.Errorf("insert division %d: %w", series.SeriesID, err)
+		}); err != nil {
+			return fmt.Errorf("insert division %d: %w", series.SeriesID, err)
 		}
-		ids.DivisionIDBySeriesID[series.SeriesID] = division.ID
 	}
+	return nil
+}
 
-	for _, pool := range ref.Pools {
-		divisionID, ok := ids.DivisionIDBySeriesID[pool.SeriesID]
-		if !ok {
-			return ReferenceIDs{}, fmt.Errorf("insert pool %d: division %d not found in this reference response", pool.PoolID, pool.SeriesID)
-		}
-		row, err := s.InsertPool(ctx, store.Pool{
-			PoolID:     pool.PoolID,
-			DivisionID: divisionID,
-			Name:       pool.PoolName,
-			Ordering:   pool.Ordering,
-			PoolType:   pool.Type,
-		})
-		if err != nil {
-			return ReferenceIDs{}, fmt.Errorf("insert pool %d: %w", pool.PoolID, err)
-		}
-		ids.PoolIDByPoolID[pool.PoolID] = row.ID
-	}
-
+// importCountries write the countries table
+//
+// sourced from:
+// reference endpoint countries[]
+func importCountries(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
 	for _, country := range ref.Countries {
-		row, err := s.InsertCountry(ctx, store.Country{
-			CountryExtID: country.CountryID,
+		if err := s.InsertCountry(ctx, store.Country{
+			CountryID:    country.CountryID,
 			Name:         country.Name,
 			Abbreviation: country.Abbreviation,
 			FlagFile:     country.FlagFile,
-		})
-		if err != nil {
-			return ReferenceIDs{}, fmt.Errorf("insert country %d: %w", country.CountryID, err)
+		}); err != nil {
+			return fmt.Errorf("insert country %d: %w", country.CountryID, err)
 		}
-		ids.CountryIDByCountryID[country.CountryID] = row.ID
 	}
-
-	return ids, nil
+	return nil
 }
 
-// ImportTeams writes a teams row per team then that team's player roster.
+// importLocations write the locations table
+// Deduped as there may be multiple reservations per location
+// Must be run before importReservations
 //
-// A team row merges three sources:
-// reference endpoint: identity (abbreviation, club)
-// teams endpoint: stats
-// team detail endpoint: pool assignment
-func ImportTeams(ctx context.Context, s *store.Store, ids ReferenceIDs, ref *ReferenceResponse, teams *TeamsResponse, detailByTeamID map[int64]*TeamDetailResponse) error {
-	identityByTeamID := make(map[int64]ReferenceTeam, len(ref.Teams))
-	for _, rt := range ref.Teams {
-		identityByTeamID[rt.TeamID] = rt
+// sourced from:
+// reference endpoint reservations[]
+func importLocations(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+	seen := make(map[int64]bool, len(ref.Reservations))
+	for _, res := range ref.Reservations {
+		if seen[res.Location] {
+			continue
+		}
+		if err := s.InsertLocation(ctx, store.Location{
+			ID:   res.Location,
+			Name: res.LocationName,
+		}); err != nil {
+			return fmt.Errorf("insert location %d: %w", res.Location, err)
+		}
+		seen[res.Location] = true
 	}
+	return nil
+}
 
-	for _, stats := range teams.Teams {
-		identity := identityByTeamID[stats.TeamID] // zero value if absent: "", ""
-		detail := detailByTeamID[stats.TeamID]     // nil if absent
-
-		divisionID, ok := ids.DivisionIDBySeriesID[stats.Series]
-		if !ok {
-			return fmt.Errorf("insert team %d: division %d not found in this reference response", stats.TeamID, stats.Series)
+// importReservations write the reservations table
+// Must be run after importLocations
+//
+// sourced from:
+// reference endpoint reservations[]
+func importReservations(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+	for _, res := range ref.Reservations {
+		if err := s.InsertReservation(ctx, store.Reservation{
+			ID:               res.ID,
+			Location:         res.Location,
+			FieldName:        res.FieldName,
+			ReservationGroup: res.ReservationGroup,
+		}); err != nil {
+			return fmt.Errorf("insert reservation %d: %w", res.ID, err)
 		}
-		countryID, ok := ids.CountryIDByCountryID[stats.Country]
-		if !ok {
-			return fmt.Errorf("insert team %d: country %d not found in this reference response", stats.TeamID, stats.Country)
-		}
+	}
+	return nil
+}
 
-		var poolID *int64
+// importPools write the pools table
+// Must be run after importDivisions
+//
+// sourced from:
+// reference endpoint pools[]
+func importPools(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+	for _, pool := range ref.Pools {
+		seriesID := pool.SeriesID
+		if err := s.InsertPool(ctx, store.Pool{
+			PoolID:         pool.PoolID,
+			Name:           pool.PoolName,
+			Ordering:       pool.Ordering,
+			Visible:        pool.Visible.Int64(),
+			Continuingpool: pool.Continuing.Int64(),
+			Placementpool:  pool.Placementpool.Int64(),
+			Played:         pool.Played.Int64(),
+			Series:         &seriesID,
+			Type:           pool.Type,
+		}); err != nil {
+			return fmt.Errorf("insert pool %d: %w", pool.PoolID, err)
+		}
+	}
+	return nil
+}
+
+// importTeams write the teams table
+//
+// sourced from:
+// reference endpoint teams[]
+// teams endpoint (a request per team id)
+func importTeams(ctx context.Context, s *store.Store, ref *ReferenceResponse, detailByTeamID map[int64]*TeamDetailResponse) error {
+	for _, team := range ref.Teams {
+		detail := detailByTeamID[team.TeamID] // nil if absent
+
+		var pool *int64
 		if detail != nil && detail.Pool != 0 {
-			id, ok := ids.PoolIDByPoolID[detail.Pool]
-			if !ok {
-				return fmt.Errorf("insert team %d: pool %d not found in this reference response", stats.TeamID, detail.Pool)
-			}
-			poolID = &id
+			pool = &detail.Pool
+		}
+		var valid int64
+		if detail != nil {
+			valid = detail.Valid.Int64()
 		}
 
-		var spiritTotal *int64
-		if stats.Spirit.Valid {
-			v := int64(stats.Spirit.Value)
-			spiritTotal = &v
-		}
-		var spiritAvg *float64
-		if stats.SpiritAvg.Valid {
-			v := stats.SpiritAvg.Value
-			spiritAvg = &v
-		}
+		series := team.Series
+		country := team.Country
+		rank := team.Rank
+		finalStanding := team.FinalStanding
+		finalStandingCalculated := team.FinalStandingCalculated
 
-		team, err := s.InsertTeam(ctx, store.Team{
-			TeamID:                  stats.TeamID,
-			DivisionID:              divisionID,
-			PoolID:                  poolID,
-			CountryID:               countryID,
-			Name:                    stats.Name,
-			Abbreviation:            identity.Abbreviation,
-			Club:                    identity.Club,
-			Seed:                    stats.Seed,
-			GamesPlayed:             stats.Games,
-			Wins:                    stats.Wins,
-			Losses:                  stats.Losses,
-			PointsFor:               stats.For,
-			PointsAgainst:           stats.Against,
-			SpiritTotal:             spiritTotal,
-			SpiritAvg:               spiritAvg,
-			FinalStanding:           stats.FinalStanding,
-			FinalStandingCalculated: stats.FinalStandingCalculated,
-		})
-		if err != nil {
-			return fmt.Errorf("insert team %d: %w", stats.TeamID, err)
+		if err := s.InsertTeam(ctx, store.Team{
+			TeamID:                  team.TeamID,
+			Name:                    team.Name,
+			Pool:                    pool,
+			Rank:                    &rank,
+			Valid:                   valid,
+			Series:                  &series,
+			Country:                 &country,
+			Abbreviation:            team.Abbreviation,
+			FinalStanding:           &finalStanding,
+			FinalStandingCalculated: &finalStandingCalculated,
+		}); err != nil {
+			return fmt.Errorf("insert team %d: %w", team.TeamID, err)
 		}
 
 		if detail != nil {
-			if err := importPlayers(ctx, s, team.ID, detail.Players); err != nil {
-				return fmt.Errorf("insert players for team %d: %w", stats.TeamID, err)
+			if err := importPlayers(ctx, s, team.TeamID, detail.Players); err != nil {
+				return fmt.Errorf("insert players for team %d: %w", team.TeamID, err)
 			}
 		}
 	}
@@ -175,19 +210,19 @@ func ImportTeams(ctx context.Context, s *store.Store, ids ReferenceIDs, ref *Ref
 	return nil
 }
 
-// importPlayers writes a player row per squad member from a team's roster.
+// importPlayers write a row in the players table
+//
+// sourced from:
+// teams endpoint
 func importPlayers(ctx context.Context, s *store.Store, teamID int64, players []PlayerStats) error {
 	for _, p := range players {
-		if _, err := s.InsertPlayer(ctx, store.Player{
+		if err := s.InsertPlayer(ctx, store.Player{
 			PlayerID:    p.PlayerID,
-			TeamID:      teamID,
 			FirstName:   p.FirstName,
 			LastName:    p.LastName,
-			JerseyNum:   p.Num,
+			Team:        teamID,
+			Num:         p.Num,
 			GamesPlayed: p.Games,
-			Goals:       p.Done,
-			Assists:     p.Fedin,
-			Callahans:   p.Callahan,
 		}); err != nil {
 			return fmt.Errorf("insert player %d: %w", p.PlayerID, err)
 		}
