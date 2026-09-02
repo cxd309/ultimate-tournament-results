@@ -8,8 +8,8 @@ import (
 )
 
 // Pool is the plain-Go-typed form of a single row in the pools table
-// Visible/Continuingpool/Placementpool/Played are IntBool: always known even though
-// placementpool is a nullable column, so no pointer needed.
+// Visible/Continuingpool/Placementpool/Played are IntBool:
+// always known even though placementpool is a nullable column, so no pointer needed
 type Pool struct {
 	PoolID         int64
 	Name           string
@@ -20,18 +20,23 @@ type Pool struct {
 	Played         convert.IntBool
 	Series         *int64
 	Type           int64
+	// Drawsallowed/PlayoffTemplate come from games, and are absent for a pool with no games.
+	Drawsallowed    *int64
+	PlayoffTemplate string
 }
 
 func (s *Store) InsertPool(ctx context.Context, p Pool) error {
 	return s.q.InsertPool(ctx, dbgen.InsertPoolParams{
-		PoolID:         p.PoolID,
-		Name:           convert.NullString(p.Name),
-		Ordering:       convert.NullString(p.Ordering),
-		Visible:        p.Visible.Int64(),
-		Continuingpool: p.Continuingpool.Int64(),
-		Placementpool:  p.Placementpool.NullInt64(),
-		Played:         p.Played.Int64(),
-		Series:         convert.NullInt64(p.Series),
-		Type:           p.Type,
+		PoolID:          p.PoolID,
+		Name:            convert.NullString(p.Name),
+		Ordering:        convert.NullString(p.Ordering),
+		Visible:         p.Visible.Int64(),
+		Continuingpool:  p.Continuingpool.Int64(),
+		Placementpool:   p.Placementpool.NullInt64(),
+		Played:          p.Played.Int64(),
+		Series:          convert.NullInt64(p.Series),
+		Type:            p.Type,
+		Drawsallowed:    convert.NullInt64(p.Drawsallowed),
+		PlayoffTemplate: convert.NullString(p.PlayoffTemplate),
 	})
 }

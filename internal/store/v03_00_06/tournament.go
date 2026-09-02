@@ -14,6 +14,7 @@ type Tournament struct {
 	StartTime  string
 	EndTime    string
 	Timezone   string
+	Spiritmode *int64 // which spirit score mode is used for the tournament; selects spirit_categories.mode
 	Host       string
 	BasePath   string
 	AppVersion string
@@ -27,6 +28,7 @@ func (s *Store) InsertTournament(ctx context.Context, t Tournament) error {
 		Starttime:  convert.NullString(t.StartTime),
 		Endtime:    convert.NullString(t.EndTime),
 		Timezone:   convert.NullString(t.Timezone),
+		Spiritmode: convert.NullInt64(t.Spiritmode),
 		Host:       t.Host,
 		BasePath:   t.BasePath,
 		AppVersion: convert.NullString(t.AppVersion),
@@ -45,6 +47,7 @@ func (s *Store) GetTournament(ctx context.Context) (Tournament, error) {
 		StartTime:  convert.String(row.Starttime),
 		EndTime:    convert.String(row.Endtime),
 		Timezone:   convert.String(row.Timezone),
+		Spiritmode: convert.Int64(row.Spiritmode),
 		Host:       row.Host,
 		BasePath:   row.BasePath,
 		AppVersion: convert.String(row.AppVersion),

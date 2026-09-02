@@ -8,6 +8,9 @@ import (
 )
 
 // Game is the plain-Go-typed form of a single row in the games table
+// Valid/Isongoing/Islive/ShowSpirit/Forfeit are IntBool:
+// always known even though most are db nullable columns, so no pointer needed
+// Hasstarted is a plain int64 pointer, not IntBool: observed values go beyond 0/1
 type Game struct {
 	GameID                int64
 	Hometeam              *int64 // nil for an unresolved bracket slot
@@ -16,14 +19,11 @@ type Game struct {
 	Visitorscore          *int64
 	Reservation           *int64
 	Time                  string
-	Pool                  *int64
 	Valid                 convert.IntBool
 	Halftime              *int64
 	Official              string
 	Respteam              *int64
 	Resppers              *int64
-	Homesotg              *int64
-	Visitorsotg           *int64
 	Isongoing             convert.IntBool
 	SchedulingNameHome    *int64
 	SchedulingNameVisitor *int64
@@ -33,6 +33,12 @@ type Game struct {
 	Visitordefenses       *int64
 	Islive                convert.IntBool
 	Liveurl               string
+	Hasstarted            *int64
+	ShowSpirit            convert.IntBool
+	TimerStart            *int64
+	TimerPauseStart       *int64
+	TimerPausedDuration   *int64
+	Forfeit               convert.IntBool
 }
 
 func (s *Store) InsertGame(ctx context.Context, g Game) error {
@@ -44,14 +50,11 @@ func (s *Store) InsertGame(ctx context.Context, g Game) error {
 		Visitorscore:          convert.NullInt64(g.Visitorscore),
 		Reservation:           convert.NullInt64(g.Reservation),
 		Time:                  convert.NullString(g.Time),
-		Pool:                  convert.NullInt64(g.Pool),
 		Valid:                 g.Valid.Int64(),
 		Halftime:              convert.NullInt64(g.Halftime),
 		Official:              convert.NullString(g.Official),
 		Respteam:              convert.NullInt64(g.Respteam),
 		Resppers:              convert.NullInt64(g.Resppers),
-		Homesotg:              convert.NullInt64(g.Homesotg),
-		Visitorsotg:           convert.NullInt64(g.Visitorsotg),
 		Isongoing:             g.Isongoing.NullInt64(),
 		SchedulingNameHome:    convert.NullInt64(g.SchedulingNameHome),
 		SchedulingNameVisitor: convert.NullInt64(g.SchedulingNameVisitor),
@@ -61,5 +64,11 @@ func (s *Store) InsertGame(ctx context.Context, g Game) error {
 		Visitordefenses:       convert.NullInt64(g.Visitordefenses),
 		Islive:                g.Islive.NullInt64(),
 		Liveurl:               convert.NullString(g.Liveurl),
+		Hasstarted:            convert.NullInt64(g.Hasstarted),
+		ShowSpirit:            g.ShowSpirit.NullInt64(),
+		TimerStart:            convert.NullInt64(g.TimerStart),
+		TimerPauseStart:       convert.NullInt64(g.TimerPauseStart),
+		TimerPausedDuration:   convert.NullInt64(g.TimerPausedDuration),
+		Forfeit:               g.Forfeit.NullInt64(),
 	})
 }

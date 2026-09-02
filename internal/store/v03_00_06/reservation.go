@@ -8,10 +8,10 @@ import (
 )
 
 // Reservation is the plain-Go-typed form of a single row in the reservations table
-// Location must be an id already present in locations table
+// Location must be an id already present in locations table, when known
 type Reservation struct {
 	ID               int64
-	Location         int64
+	Location         *int64
 	FieldName        string
 	ReservationGroup string
 }
@@ -19,7 +19,7 @@ type Reservation struct {
 func (s *Store) InsertReservation(ctx context.Context, r Reservation) error {
 	return s.q.InsertReservation(ctx, dbgen.InsertReservationParams{
 		ID:               r.ID,
-		Location:         r.Location,
+		Location:         convert.NullInt64(r.Location),
 		Fieldname:        convert.NullString(r.FieldName),
 		Reservationgroup: convert.NullString(r.ReservationGroup),
 	})

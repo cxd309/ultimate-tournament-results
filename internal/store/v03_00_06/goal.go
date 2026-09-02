@@ -19,6 +19,7 @@ type Goal struct {
 	Visitorscore *int64
 	Ishomegoal   convert.IntBool
 	Iscallahan   convert.IntBool
+	Timestamp    string // scorekeeper data-entry time, not the goal's -- see schema
 }
 
 func (s *Store) InsertGoal(ctx context.Context, g Goal) error {
@@ -32,5 +33,6 @@ func (s *Store) InsertGoal(ctx context.Context, g Goal) error {
 		Visitorscore: convert.NullInt64(g.Visitorscore),
 		Ishomegoal:   g.Ishomegoal.Int64(),
 		Iscallahan:   g.Iscallahan.Int64(),
+		Timestamp:    convert.NullString(g.Timestamp),
 	})
 }
