@@ -1,4 +1,4 @@
-package v01_09_14
+package livearchive
 
 import (
 	"context"
@@ -7,14 +7,16 @@ import (
 	"time"
 
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
+	liveclient "github.com/cxd309/ultimate-tournament-results/internal/liveclient/v01_09_14"
+	"github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v01_09_14"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
 
-// Import writes an entire Snapshot (see Gather) to the store, in FK-dependency order:
+// Import writes an entire snapshot (see liveclient.Client.Gather) to the store, in FK-dependency order:
 // divisions before pools, locations before reservations, everything before teams. This
 // is the package's only exported write entrypoint -- the per-table functions below are
 // internal building blocks, not meant to be called individually from outside.
-func Import(ctx context.Context, s *store.Store, host, basePath string, snap *Snapshot) error {
+func Import(ctx context.Context, s *store.Store, host, basePath string, snap *liveclient.Snapshot) error {
 	if err := importTournament(ctx, s, host, basePath, snap.Heartbeat, snap.Reference); err != nil {
 		return fmt.Errorf("import tournament: %w", err)
 	}
@@ -56,7 +58,7 @@ func Import(ctx context.Context, s *store.Store, host, basePath string, snap *Sn
 //
 // season.name is the reliable event name
 // heartbeat's config.TOURNAMENT_NAME "may be an empty string even on a live event."
-func importTournament(ctx context.Context, s *store.Store, host, basePath string, hb *HeartbeatResponse, ref *ReferenceResponse) error {
+func importTournament(ctx context.Context, s *store.Store, host, basePath string, hb *livedatamodel.HeartbeatResponse, ref *livedatamodel.ReferenceResponse) error {
 	return s.InsertTournament(ctx, store.Tournament{
 		SeasonID:   hb.Config.LiveSeasonID,
 		Name:       ref.Season.Name,
@@ -74,7 +76,7 @@ func importTournament(ctx context.Context, s *store.Store, host, basePath string
 //
 // sourced from:
 // reference endpoint series[]
-func importDivisions(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+func importDivisions(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse) error {
 	for _, series := range ref.Series {
 		if err := s.InsertDivision(ctx, store.Division{
 			SeriesID: series.SeriesID,
@@ -91,7 +93,7 @@ func importDivisions(ctx context.Context, s *store.Store, ref *ReferenceResponse
 //
 // sourced from:
 // reference endpoint countries[]
-func importCountries(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+func importCountries(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse) error {
 	for _, country := range ref.Countries {
 		if err := s.InsertCountry(ctx, store.Country{
 			CountryID:    country.CountryID,
@@ -111,7 +113,7 @@ func importCountries(ctx context.Context, s *store.Store, ref *ReferenceResponse
 //
 // sourced from:
 // reference endpoint reservations[]
-func importLocations(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+func importLocations(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse) error {
 	seen := make(map[int64]bool, len(ref.Reservations))
 	for _, res := range ref.Reservations {
 		if seen[res.Location] {
@@ -133,7 +135,7 @@ func importLocations(ctx context.Context, s *store.Store, ref *ReferenceResponse
 //
 // sourced from:
 // reference endpoint reservations[]
-func importReservations(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+func importReservations(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse) error {
 	for _, res := range ref.Reservations {
 		if err := s.InsertReservation(ctx, store.Reservation{
 			ID:               res.ID,
@@ -152,7 +154,7 @@ func importReservations(ctx context.Context, s *store.Store, ref *ReferenceRespo
 //
 // sourced from:
 // reference endpoint pools[]
-func importPools(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+func importPools(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse) error {
 	for _, pool := range ref.Pools {
 		seriesID := pool.SeriesID
 		if err := s.InsertPool(ctx, store.Pool{
@@ -177,7 +179,7 @@ func importPools(ctx context.Context, s *store.Store, ref *ReferenceResponse) er
 // sourced from:
 // reference endpoint teams[]
 // teams endpoint (a request per team id)
-func importTeams(ctx context.Context, s *store.Store, ref *ReferenceResponse, detailByTeamID map[int64]*TeamDetailResponse) error {
+func importTeams(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse, detailByTeamID map[int64]*livedatamodel.TeamDetailResponse) error {
 	for _, team := range ref.Teams {
 		detail := detailByTeamID[team.TeamID] // nil if absent
 
@@ -226,7 +228,7 @@ func importTeams(ctx context.Context, s *store.Store, ref *ReferenceResponse, de
 //
 // sourced from:
 // teams endpoint
-func importPlayers(ctx context.Context, s *store.Store, teamID int64, players []PlayerStats) error {
+func importPlayers(ctx context.Context, s *store.Store, teamID int64, players []livedatamodel.PlayerStats) error {
 	for _, p := range players {
 		if err := s.InsertPlayer(ctx, store.Player{
 			PlayerID:    p.PlayerID,
@@ -248,7 +250,7 @@ func importPlayers(ctx context.Context, s *store.Store, teamID int64, players []
 // sourced from:
 // games endpoint (game ids to enumerate)
 // game detail endpoint game_result
-func importGames(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
+func importGames(ctx context.Context, s *store.Store, detailByGameID map[int64]*livedatamodel.GameDetailResponse) error {
 	for _, detail := range detailByGameID {
 		gr := detail.GameResult
 		name, err := parseSchedulingNameID(gr.Name)
@@ -292,7 +294,7 @@ func importGames(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 //
 // sourced from:
 // game detail endpoint goals[]
-func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
+func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*livedatamodel.GameDetailResponse) error {
 	for gameID, detail := range detailByGameID {
 		for _, g := range detail.Goals {
 			if err := s.InsertGoal(ctx, store.Goal{
@@ -318,12 +320,12 @@ func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 //
 // sourced from:
 // game detail endpoint spiritstats
-func importSpiritScores(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
+func importSpiritScores(ctx context.Context, s *store.Store, detailByGameID map[int64]*livedatamodel.GameDetailResponse) error {
 	for gameID, detail := range detailByGameID {
 		if detail.SpiritStats == nil {
 			continue // event doesn't publish spirit points
 		}
-		for _, score := range []*GameSpiritScore{detail.SpiritStats.Hometeam, detail.SpiritStats.Visitorteam} {
+		for _, score := range []*livedatamodel.GameSpiritScore{detail.SpiritStats.Hometeam, detail.SpiritStats.Visitorteam} {
 			if score == nil {
 				continue
 			}

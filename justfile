@@ -1,6 +1,3 @@
-# Spec versions with a cmd/ implementation -- extend this as new versions are added
-versions := "v01_09_14 v01_09_17 v03_00_06"
-
 # Build output directory
 dist_dir := "dist"
 
@@ -29,17 +26,8 @@ dbgen:
 clean:
     rm -rf {{ dist_dir }}
 
-# ── Build: compile cmd/<version>/<tool> into {{ dist_dir }}/<tool>-<version> ─
+# ── Build: compile cmd/utr into {{ dist_dir }}/utr ────────────────────────────
 build: clean fmt
-    #!/usr/bin/env bash
-    set -euo pipefail
     mkdir -p {{ dist_dir }}
-    for v in {{ versions }}; do
-        for dir in cmd/$v/*/; do
-            tool="$(basename "$dir")"
-            out="{{ dist_dir }}/${tool}-${v}"
-            echo "==> building $out"
-            go build -o "$out" "./$dir"
-        done
-    done
+    go build -o {{ dist_dir }}/utr ./cmd/utr
  

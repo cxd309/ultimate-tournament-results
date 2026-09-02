@@ -1,7 +1,6 @@
-// Package v03_00_06 models the Live! by BULA 3.0.6 API shape
+// Package livedatamodel models the Live! by BULA 3.0.6 API response shapes
 // see live-by-bula-openapi's openapi-3.0.6.yaml
-// it can fetch a response and import into a internal/db/v03_00_06 schema
-package v03_00_06
+package livedatamodel
 
 import (
 	"encoding/json"

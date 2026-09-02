@@ -1,12 +1,11 @@
-// Package v01_09_17 models the Live! by BULA 1.9.17 API shape
-// see live-by-bula-openapi's openapi-1.9.17.yaml
-// it can fetch a response and import into a internal/db/v01_09_17 schema
-package v01_09_17
+// Package livedatamodel models the Live! by BULA 1.9.14-1.9.16 API response shapes
+// see live-by-bula-openapi's openapi-1.9.14.yaml
+package livedatamodel
 
 import "github.com/cxd309/ultimate-tournament-results/internal/convert"
 
 // HeartbeatResponse is the response of GET {basePath}_heartbeat.json
-// See openapi-1.9.17.yaml #/components/schemas/Heartbeat
+// See openapi-1.9.14.yaml #/components/schemas/Heartbeat
 type HeartbeatResponse struct {
 	AppVersion     string          `json:"app_version"`
 	CacheVersion   string          `json:"cache_version"`
@@ -24,7 +23,7 @@ type HeartbeatConfig struct {
 }
 
 // ReferenceResponse is the response of GET {basePath}{seasonId}_reference.json
-// See openapi-1.9.17.yaml #/components/schemas/ReferenceResponse
+// See openapi-1.9.14.yaml #/components/schemas/ReferenceResponse
 type ReferenceResponse struct {
 	Season       Season          `json:"season"`
 	Series       []Series        `json:"series"`
@@ -100,7 +99,7 @@ type Reservation struct {
 }
 
 // TeamDetailResponse is the response of GET {basePath}{seasonId}_teams_{teamId}.json
-// See openapi-1.9.17.yaml #/components/schemas/TeamDetailResponse
+// See openapi-1.9.14.yaml #/components/schemas/TeamDetailResponse
 //
 // Only the fields this archiver currently uses are modeled here
 // spirit given/received belongs to a later slice, not this one.
@@ -139,7 +138,7 @@ type GameListEntry struct {
 }
 
 // GameDetailResponse is the response of GET {basePath}{seasonId}_games_{gameId}.json
-// See openapi-1.9.17.yaml #/components/schemas/GameDetailResponse
+// See openapi-1.9.14.yaml #/components/schemas/GameDetailResponse
 //
 // Only the fields this archiver currently uses are modeled here: game_info, seasoninfo,
 // poolinfo, teams, the two scoreboards, gameevents/mediaevents and the captains are all
