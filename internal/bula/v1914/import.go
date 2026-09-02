@@ -3,8 +3,10 @@ package v1914
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/cxd309/ultimate-tournament-results/internal/convert"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v1914"
 )
 
@@ -33,6 +35,15 @@ func Import(ctx context.Context, s *store.Store, host, basePath string, snap *Sn
 	}
 	if err := importTeams(ctx, s, snap.Reference, snap.TeamDetailByID); err != nil {
 		return fmt.Errorf("import teams: %w", err)
+	}
+	if err := importGames(ctx, s, snap.GameDetailByID); err != nil {
+		return fmt.Errorf("import games: %w", err)
+	}
+	if err := importGoals(ctx, s, snap.GameDetailByID); err != nil {
+		return fmt.Errorf("import goals: %w", err)
+	}
+	if err := importSpiritScores(ctx, s, snap.GameDetailByID); err != nil {
+		return fmt.Errorf("import spirit scores: %w", err)
 	}
 	return nil
 }
@@ -148,10 +159,10 @@ func importPools(ctx context.Context, s *store.Store, ref *ReferenceResponse) er
 			PoolID:         pool.PoolID,
 			Name:           pool.PoolName,
 			Ordering:       pool.Ordering,
-			Visible:        pool.Visible.Int64(),
-			Continuingpool: pool.Continuing.Int64(),
-			Placementpool:  pool.Placementpool.Int64(),
-			Played:         pool.Played.Int64(),
+			Visible:        pool.Visible,
+			Continuingpool: pool.Continuing,
+			Placementpool:  pool.Placementpool,
+			Played:         pool.Played,
 			Series:         &seriesID,
 			Type:           pool.Type,
 		}); err != nil {
@@ -174,9 +185,9 @@ func importTeams(ctx context.Context, s *store.Store, ref *ReferenceResponse, de
 		if detail != nil && detail.Pool != 0 {
 			pool = &detail.Pool
 		}
-		var valid int64
+		var valid convert.IntBool
 		if detail != nil {
-			valid = detail.Valid.Int64()
+			valid = detail.Valid
 		}
 
 		series := team.Series
@@ -228,4 +239,131 @@ func importPlayers(ctx context.Context, s *store.Store, teamID int64, players []
 		}
 	}
 	return nil
+}
+
+// importGames writes the games table
+// Must be run after importPools, importTeams and importReservations
+//
+// sourced from:
+// games endpoint (game ids to enumerate)
+// game detail endpoint game_result
+func importGames(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
+	for _, detail := range detailByGameID {
+		gr := detail.GameResult
+		name, err := parseSchedulingNameID(gr.Name)
+		if err != nil {
+			return fmt.Errorf("game %d: %w", gr.GameID, err)
+		}
+		if err := s.InsertGame(ctx, store.Game{
+			GameID:                gr.GameID,
+			Hometeam:              gr.Hometeam,
+			Visitorteam:           gr.Visitorteam,
+			Homescore:             gr.Homescore,
+			Visitorscore:          gr.Visitorscore,
+			Reservation:           gr.Reservation,
+			Time:                  gr.Time,
+			Pool:                  gr.Pool,
+			Valid:                 gr.Valid,
+			Halftime:              gr.Halftime,
+			Official:              gr.Official,
+			Respteam:              gr.Respteam,
+			Resppers:              gr.Resppers,
+			Homesotg:              gr.Homesotg,
+			Visitorsotg:           gr.Visitorsotg,
+			Isongoing:             gr.Isongoing,
+			SchedulingNameHome:    gr.SchedulingNameHome,
+			SchedulingNameVisitor: gr.SchedulingNameVisitor,
+			Name:                  name,
+			Timeslot:              gr.Timeslot,
+			Homedefenses:          gr.Homedefenses,
+			Visitordefenses:       gr.Visitordefenses,
+			Islive:                gr.Islive,
+			Liveurl:               gr.Liveurl,
+		}); err != nil {
+			return fmt.Errorf("insert game %d: %w", gr.GameID, err)
+		}
+	}
+	return nil
+}
+
+// importGoals writes the goals table
+// Must be run after importGames and importPlayers
+//
+// sourced from:
+// game detail endpoint goals[]
+func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
+	for gameID, detail := range detailByGameID {
+		for _, g := range detail.Goals {
+			if err := s.InsertGoal(ctx, store.Goal{
+				GameID:       gameID,
+				Num:          g.Num,
+				Assist:       zeroToNil(g.Assist),
+				Scorer:       zeroToNil(g.Scorer),
+				Time:         g.Time,
+				Homescore:    &g.Homescore,
+				Visitorscore: &g.Visitorscore,
+				Ishomegoal:   g.Ishomegoal,
+				Iscallahan:   g.Iscallahan,
+			}); err != nil {
+				return fmt.Errorf("insert goal %d/%d: %w", gameID, g.Num, err)
+			}
+		}
+	}
+	return nil
+}
+
+// importSpiritScores writes the spirit_scores table
+// Must be run after importGames and importTeams
+//
+// sourced from:
+// game detail endpoint spiritstats
+func importSpiritScores(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
+	for gameID, detail := range detailByGameID {
+		if detail.SpiritStats == nil {
+			continue // event doesn't publish spirit points
+		}
+		for _, score := range []*GameSpiritScore{detail.SpiritStats.Hometeam, detail.SpiritStats.Visitorteam} {
+			if score == nil {
+				continue
+			}
+			if err := s.InsertSpiritScore(ctx, store.SpiritScore{
+				GameID:   gameID,
+				TeamID:   score.TeamID,
+				Cat1:     score.Cat1,
+				Cat2:     score.Cat2,
+				Cat3:     score.Cat3,
+				Cat4:     score.Cat4,
+				Cat5:     score.Cat5,
+				Comments: score.Comments,
+			}); err != nil {
+				return fmt.Errorf("insert spirit score game %d team %d: %w", gameID, score.TeamID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// parseSchedulingNameID parses GameResult.Name, sent as a numeric string because `name`
+// is exempt from the API's usual number coercion, back into the int64 the games table
+// stores it as.
+func parseSchedulingNameID(s *string) (*int64, error) {
+	if s == nil || *s == "" {
+		return nil, nil
+	}
+	id, err := strconv.ParseInt(*s, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse scheduling name id %q: %w", *s, err)
+	}
+	return &id, nil
+}
+
+// zeroToNil normalizes goal scorer/assist "not recorded" sentinels to nil, since neither
+// is ever a real player_id and both would violate the FK. The spec only documents 0, but
+// -1 shows up in practice too -- the same sentinel the API uses for homecaptain/
+// awaycaptain -- so anything non-positive is treated as unrecorded.
+func zeroToNil(id *int64) *int64 {
+	if id == nil || *id <= 0 {
+		return nil
+	}
+	return id
 }

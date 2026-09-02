@@ -1,6 +1,9 @@
 package convert
 
-import "fmt"
+import (
+	"database/sql"
+	"fmt"
+)
 
 // IntBool decodes the Live! by BULA API's IntBool convention:
 // a boolean carried as a JSON integer (0 or 1) rather than a JSON boolean,
@@ -29,6 +32,15 @@ func (b IntBool) Int64() int64 {
 		return 1
 	}
 	return 0
+}
+
+// NullInt64 converts to the sql.NullInt64 a nullable IntBool-derived column
+// Always Valid: true -- unlike NullInt64 elsewhere in this package
+// IntBool has no "unset" state of its own to carry through
+// (see the falsy-stripping note above)
+// so there's never a NULL to write, only ever a definite 0 or 1.
+func (b IntBool) NullInt64() sql.NullInt64 {
+	return sql.NullInt64{Int64: b.Int64(), Valid: true}
 }
 
 // IntBoolFromInt64 converts an int64 (0 or 1) column value back to IntBool.

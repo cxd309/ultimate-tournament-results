@@ -2,25 +2,22 @@ package store
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
 	dbgen "github.com/cxd309/ultimate-tournament-results/internal/db/v1914"
 )
 
 // Pool is the plain-Go-typed form of a single row in the pools table
-// Visible/Continuingpool/Placementpool/Played are IntBool
-// the API omits them entirely rather than sending false
-// so there's nothing to distinguish from a genuine 0/false
-// hence plain int64 rather than a pointer dispite placementpool being nullable
+// Visible/Continuingpool/Placementpool/Played are IntBool: always known even though
+// placementpool is a nullable column, so no pointer needed.
 type Pool struct {
 	PoolID         int64
 	Name           string
 	Ordering       string
-	Visible        int64
-	Continuingpool int64
-	Placementpool  int64
-	Played         int64
+	Visible        convert.IntBool
+	Continuingpool convert.IntBool
+	Placementpool  convert.IntBool
+	Played         convert.IntBool
 	Series         *int64
 	Type           int64
 }
@@ -30,10 +27,10 @@ func (s *Store) InsertPool(ctx context.Context, p Pool) error {
 		PoolID:         p.PoolID,
 		Name:           convert.NullString(p.Name),
 		Ordering:       convert.NullString(p.Ordering),
-		Visible:        p.Visible,
-		Continuingpool: p.Continuingpool,
-		Placementpool:  sql.NullInt64{Int64: p.Placementpool, Valid: true},
-		Played:         p.Played,
+		Visible:        p.Visible.Int64(),
+		Continuingpool: p.Continuingpool.Int64(),
+		Placementpool:  p.Placementpool.NullInt64(),
+		Played:         p.Played.Int64(),
 		Series:         convert.NullInt64(p.Series),
 		Type:           p.Type,
 	})

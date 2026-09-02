@@ -213,11 +213,11 @@ CREATE TABLE goals (
 );
 
 -- uo_spirit
--- One row per (game, submitting team)
--- the recipient isn't a stored column, it's implied as the other team
+-- One row per (game, recipient team)
+-- team_id is for the recipient of this score
 CREATE TABLE spirit_scores (
     game_id integer NOT NULL REFERENCES games (game_id), -- int(10)
-    team_id integer NOT NULL REFERENCES teams (team_id), -- int(10); the team that submitted this score
+    team_id integer NOT NULL REFERENCES teams (team_id), -- int(10); the team this score is for
     cat1 integer NOT NULL DEFAULT 0, -- tinyint(2)
     cat2 integer NOT NULL DEFAULT 0, -- tinyint(2)
     cat3 integer NOT NULL DEFAULT 0, -- tinyint(2)

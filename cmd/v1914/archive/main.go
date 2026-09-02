@@ -13,7 +13,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/cxd309/ultimate-tournament-results/internal/bula/v1914"
+	bula "github.com/cxd309/ultimate-tournament-results/internal/bula/v1914"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v1914"
 )
 
@@ -36,9 +36,9 @@ func run() error {
 	}
 
 	ctx := context.Background()
-	client := v1914.NewClient(*host, *basePath)
+	client := bula.NewClient(*host, *basePath)
 
-	snap, err := v1914.Gather(ctx, client)
+	snap, err := bula.Gather(ctx, client)
 	if err != nil {
 		return fmt.Errorf("gather: %w", err)
 	}
@@ -73,12 +73,23 @@ func run() error {
 		return fmt.Errorf("apply schema: %w", err)
 	}
 
-	s := store.New(sqlDB)
-	if err := v1914.Import(ctx, s, *host, *basePath, snap); err != nil {
+	// One transaction for the whole import
+	tx, err := sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	s := store.New(tx)
+	if err := bula.Import(ctx, s, *host, *basePath, snap); err != nil {
 		return fmt.Errorf("import: %w", err)
 	}
 
-	tournament, err := s.GetTournament(ctx)
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
+	tournament, err := store.New(sqlDB).GetTournament(ctx)
 	if err != nil {
 		return fmt.Errorf("read back tournament: %w", err)
 	}

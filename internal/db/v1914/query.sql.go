@@ -83,6 +83,100 @@ func (q *Queries) InsertDivision(ctx context.Context, arg InsertDivisionParams) 
 	return err
 }
 
+const insertGame = `-- name: InsertGame :exec
+INSERT INTO games (game_id, hometeam, visitorteam, homescore, visitorscore, reservation, time, pool, valid, halftime, official, respteam, resppers, homesotg, visitorsotg, isongoing, scheduling_name_home, scheduling_name_visitor, name, timeslot, homedefenses, visitordefenses, islive, liveurl)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+`
+
+type InsertGameParams struct {
+	GameID                int64          `json:"game_id"`
+	Hometeam              sql.NullInt64  `json:"hometeam"`
+	Visitorteam           sql.NullInt64  `json:"visitorteam"`
+	Homescore             sql.NullInt64  `json:"homescore"`
+	Visitorscore          sql.NullInt64  `json:"visitorscore"`
+	Reservation           sql.NullInt64  `json:"reservation"`
+	Time                  sql.NullString `json:"time"`
+	Pool                  sql.NullInt64  `json:"pool"`
+	Valid                 int64          `json:"valid"`
+	Halftime              sql.NullInt64  `json:"halftime"`
+	Official              sql.NullString `json:"official"`
+	Respteam              sql.NullInt64  `json:"respteam"`
+	Resppers              sql.NullInt64  `json:"resppers"`
+	Homesotg              sql.NullInt64  `json:"homesotg"`
+	Visitorsotg           sql.NullInt64  `json:"visitorsotg"`
+	Isongoing             sql.NullInt64  `json:"isongoing"`
+	SchedulingNameHome    sql.NullInt64  `json:"scheduling_name_home"`
+	SchedulingNameVisitor sql.NullInt64  `json:"scheduling_name_visitor"`
+	Name                  sql.NullInt64  `json:"name"`
+	Timeslot              sql.NullInt64  `json:"timeslot"`
+	Homedefenses          sql.NullInt64  `json:"homedefenses"`
+	Visitordefenses       sql.NullInt64  `json:"visitordefenses"`
+	Islive                sql.NullInt64  `json:"islive"`
+	Liveurl               sql.NullString `json:"liveurl"`
+}
+
+func (q *Queries) InsertGame(ctx context.Context, arg InsertGameParams) error {
+	_, err := q.db.ExecContext(ctx, insertGame,
+		arg.GameID,
+		arg.Hometeam,
+		arg.Visitorteam,
+		arg.Homescore,
+		arg.Visitorscore,
+		arg.Reservation,
+		arg.Time,
+		arg.Pool,
+		arg.Valid,
+		arg.Halftime,
+		arg.Official,
+		arg.Respteam,
+		arg.Resppers,
+		arg.Homesotg,
+		arg.Visitorsotg,
+		arg.Isongoing,
+		arg.SchedulingNameHome,
+		arg.SchedulingNameVisitor,
+		arg.Name,
+		arg.Timeslot,
+		arg.Homedefenses,
+		arg.Visitordefenses,
+		arg.Islive,
+		arg.Liveurl,
+	)
+	return err
+}
+
+const insertGoal = `-- name: InsertGoal :exec
+INSERT INTO goals (game_id, num, assist, scorer, time, homescore, visitorscore, ishomegoal, iscallahan)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+`
+
+type InsertGoalParams struct {
+	GameID       int64         `json:"game_id"`
+	Num          int64         `json:"num"`
+	Assist       sql.NullInt64 `json:"assist"`
+	Scorer       sql.NullInt64 `json:"scorer"`
+	Time         sql.NullInt64 `json:"time"`
+	Homescore    sql.NullInt64 `json:"homescore"`
+	Visitorscore sql.NullInt64 `json:"visitorscore"`
+	Ishomegoal   int64         `json:"ishomegoal"`
+	Iscallahan   int64         `json:"iscallahan"`
+}
+
+func (q *Queries) InsertGoal(ctx context.Context, arg InsertGoalParams) error {
+	_, err := q.db.ExecContext(ctx, insertGoal,
+		arg.GameID,
+		arg.Num,
+		arg.Assist,
+		arg.Scorer,
+		arg.Time,
+		arg.Homescore,
+		arg.Visitorscore,
+		arg.Ishomegoal,
+		arg.Iscallahan,
+	)
+	return err
+}
+
 const insertLocation = `-- name: InsertLocation :exec
 INSERT INTO locations (id, name)
     VALUES (?1, ?2)
@@ -174,6 +268,36 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		arg.Location,
 		arg.Fieldname,
 		arg.Reservationgroup,
+	)
+	return err
+}
+
+const insertSpiritScore = `-- name: InsertSpiritScore :exec
+INSERT INTO spirit_scores (game_id, team_id, cat1, cat2, cat3, cat4, cat5, comments)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+`
+
+type InsertSpiritScoreParams struct {
+	GameID   int64          `json:"game_id"`
+	TeamID   int64          `json:"team_id"`
+	Cat1     int64          `json:"cat1"`
+	Cat2     int64          `json:"cat2"`
+	Cat3     int64          `json:"cat3"`
+	Cat4     int64          `json:"cat4"`
+	Cat5     int64          `json:"cat5"`
+	Comments sql.NullString `json:"comments"`
+}
+
+func (q *Queries) InsertSpiritScore(ctx context.Context, arg InsertSpiritScoreParams) error {
+	_, err := q.db.ExecContext(ctx, insertSpiritScore,
+		arg.GameID,
+		arg.TeamID,
+		arg.Cat1,
+		arg.Cat2,
+		arg.Cat3,
+		arg.Cat4,
+		arg.Cat5,
+		arg.Comments,
 	)
 	return err
 }

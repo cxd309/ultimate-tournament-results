@@ -8,12 +8,13 @@ import (
 )
 
 // Team is the plain-Go-typed form of a single row in the teams table
+// Valid is IntBool, sourced from team-detail when known, false (not-yet-known) otherwise
 type Team struct {
 	TeamID                  int64
 	Name                    string
 	Pool                    *int64 // nil until the roster/team-detail slice sets it
 	Rank                    *int64
-	Valid                   int64
+	Valid                   convert.IntBool
 	Series                  *int64
 	Country                 *int64
 	Abbreviation            string
@@ -27,7 +28,7 @@ func (s *Store) InsertTeam(ctx context.Context, t Team) error {
 		Name:                    convert.NullString(t.Name),
 		Pool:                    convert.NullInt64(t.Pool),
 		Rank:                    convert.NullInt64(t.Rank),
-		Valid:                   t.Valid,
+		Valid:                   t.Valid.Int64(),
 		Series:                  convert.NullInt64(t.Series),
 		Country:                 convert.NullInt64(t.Country),
 		Abbreviation:            convert.NullString(t.Abbreviation),

@@ -110,3 +110,21 @@ func (c *Client) FetchTeamDetail(ctx context.Context, teamID int64) (*TeamDetail
 	}
 	return &detail, nil
 }
+
+// FetchGames fetches {BasePath}{SeasonID}_games.json
+func (c *Client) FetchGames(ctx context.Context) (*GamesResponse, error) {
+	var games GamesResponse
+	if err := c.getSeasonJSON(ctx, "_games", &games); err != nil {
+		return nil, err
+	}
+	return &games, nil
+}
+
+// FetchGameDetail fetches {BasePath}{SeasonID}_games_{gameID}.json.
+func (c *Client) FetchGameDetail(ctx context.Context, gameID int64) (*GameDetailResponse, error) {
+	var detail GameDetailResponse
+	if err := c.getSeasonJSON(ctx, fmt.Sprintf("_games_%d", gameID), &detail); err != nil {
+		return nil, err
+	}
+	return &detail, nil
+}

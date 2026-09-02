@@ -36,3 +36,15 @@ INSERT INTO teams (team_id, name, pool, rank, valid, series, country, abbreviati
 INSERT INTO players (player_id, firstname, lastname, team, num, games_played)
     VALUES (sqlc.arg (player_id), sqlc.arg (firstname), sqlc.arg (lastname), sqlc.arg (team), sqlc.arg (num), sqlc.arg (games_played));
 
+-- name: InsertGame :exec
+INSERT INTO games (game_id, hometeam, visitorteam, homescore, visitorscore, reservation, time, pool, valid, halftime, official, respteam, resppers, homesotg, visitorsotg, isongoing, scheduling_name_home, scheduling_name_visitor, name, timeslot, homedefenses, visitordefenses, islive, liveurl)
+    VALUES (sqlc.arg (game_id), sqlc.arg (hometeam), sqlc.arg (visitorteam), sqlc.arg (homescore), sqlc.arg (visitorscore), sqlc.arg (reservation), sqlc.arg (time), sqlc.arg (pool), sqlc.arg (valid), sqlc.arg (halftime), sqlc.arg (official), sqlc.arg (respteam), sqlc.arg (resppers), sqlc.arg (homesotg), sqlc.arg (visitorsotg), sqlc.arg (isongoing), sqlc.arg (scheduling_name_home), sqlc.arg (scheduling_name_visitor), sqlc.arg (name), sqlc.arg (timeslot), sqlc.arg (homedefenses), sqlc.arg (visitordefenses), sqlc.arg (islive), sqlc.arg (liveurl));
+
+-- name: InsertGoal :exec
+INSERT INTO goals (game_id, num, assist, scorer, time, homescore, visitorscore, ishomegoal, iscallahan)
+    VALUES (sqlc.arg (game_id), sqlc.arg (num), sqlc.arg (assist), sqlc.arg (scorer), sqlc.arg (time), sqlc.arg (homescore), sqlc.arg (visitorscore), sqlc.arg (ishomegoal), sqlc.arg (iscallahan));
+
+-- name: InsertSpiritScore :exec
+INSERT INTO spirit_scores (game_id, team_id, cat1, cat2, cat3, cat4, cat5, comments)
+    VALUES (sqlc.arg (game_id), sqlc.arg (team_id), sqlc.arg (cat1), sqlc.arg (cat2), sqlc.arg (cat3), sqlc.arg (cat4), sqlc.arg (cat5), sqlc.arg (comments));
+
