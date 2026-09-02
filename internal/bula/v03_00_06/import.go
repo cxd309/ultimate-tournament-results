@@ -30,20 +30,32 @@ func Import(ctx context.Context, s *store.Store, host, basePath string, snap *Sn
 	if err := importReservations(ctx, s, snap.Reference); err != nil {
 		return fmt.Errorf("import reservations: %w", err)
 	}
-	if err := importPools(ctx, s, snap.Reference); err != nil {
+	if err := importPools(ctx, s, snap.Reference, poolInfoByPoolID(snap.GameDetailByID)); err != nil {
 		return fmt.Errorf("import pools: %w", err)
 	}
 	if err := importTeams(ctx, s, snap.Reference, snap.TeamDetailByID); err != nil {
 		return fmt.Errorf("import teams: %w", err)
 	}
+	if err := importPoolPlacements(ctx, s, snap.Reference); err != nil {
+		return fmt.Errorf("import pool placements: %w", err)
+	}
 	if err := importGames(ctx, s, snap.GameDetailByID); err != nil {
 		return fmt.Errorf("import games: %w", err)
+	}
+	if err := importGamePools(ctx, s, snap.GameDetailByID, snap.GamePoolsByGameID); err != nil {
+		return fmt.Errorf("import game pools: %w", err)
 	}
 	if err := importGoals(ctx, s, snap.GameDetailByID); err != nil {
 		return fmt.Errorf("import goals: %w", err)
 	}
-	if err := importSpiritScores(ctx, s, snap.GameDetailByID); err != nil {
+	if err := importSpiritCategories(ctx, s, snap.Reference); err != nil {
+		return fmt.Errorf("import spirit categories: %w", err)
+	}
+	if err := importSpiritScores(ctx, s, snap.Reference, snap.GameDetailByID); err != nil {
 		return fmt.Errorf("import spirit scores: %w", err)
+	}
+	if err := importSpiritComments(ctx, s, snap.GameDetailByID); err != nil {
+		return fmt.Errorf("import spirit comments: %w", err)
 	}
 	return nil
 }
@@ -63,6 +75,7 @@ func importTournament(ctx context.Context, s *store.Store, host, basePath string
 		StartTime:  ref.Season.StartTime,
 		EndTime:    ref.Season.EndTime,
 		Timezone:   ref.Season.Timezone,
+		Spiritmode: ref.Season.SpiritMode,
 		Host:       host,
 		BasePath:   basePath,
 		AppVersion: hb.AppVersion,
@@ -111,19 +124,23 @@ func importCountries(ctx context.Context, s *store.Store, ref *ReferenceResponse
 //
 // sourced from:
 // reference endpoint reservations[]
+//
+// A nil or 0 Location means "the event uses a single unnamed site" -- there's no real
+// location to insert, so those reservations are skipped here.
 func importLocations(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
 	seen := make(map[int64]bool, len(ref.Reservations))
 	for _, res := range ref.Reservations {
-		if seen[res.Location] {
+		locationID := zeroToNil(res.Location)
+		if locationID == nil || seen[*locationID] {
 			continue
 		}
 		if err := s.InsertLocation(ctx, store.Location{
-			ID:   res.Location,
+			ID:   *locationID,
 			Name: res.LocationName,
 		}); err != nil {
-			return fmt.Errorf("insert location %d: %w", res.Location, err)
+			return fmt.Errorf("insert location %d: %w", *locationID, err)
 		}
-		seen[res.Location] = true
+		seen[*locationID] = true
 	}
 	return nil
 }
@@ -137,7 +154,7 @@ func importReservations(ctx context.Context, s *store.Store, ref *ReferenceRespo
 	for _, res := range ref.Reservations {
 		if err := s.InsertReservation(ctx, store.Reservation{
 			ID:               res.ID,
-			Location:         res.Location,
+			Location:         zeroToNil(res.Location),
 			FieldName:        res.FieldName,
 			ReservationGroup: res.ReservationGroup,
 		}); err != nil {
@@ -147,24 +164,50 @@ func importReservations(ctx context.Context, s *store.Store, ref *ReferenceRespo
 	return nil
 }
 
+// poolInfoByPoolID indexes every game's poolinfo by pool_id, for importPools to pull
+// drawsallowed/playoff_template from -- the reference endpoint's own Pool objects don't
+// carry those two fields. A pool with no games in it never appears here.
+func poolInfoByPoolID(detailByGameID map[int64]*GameDetailResponse) map[int64]PoolInfo {
+	byPoolID := make(map[int64]PoolInfo, len(detailByGameID))
+	for _, detail := range detailByGameID {
+		byPoolID[detail.PoolInfo.PoolID] = detail.PoolInfo
+	}
+	return byPoolID
+}
+
 // importPools write the pools table
 // Must be run after importDivisions
 //
 // sourced from:
 // reference endpoint pools[]
-func importPools(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+// game detail endpoint poolinfo (drawsallowed/playoff_template only, via poolInfoByID)
+func importPools(ctx context.Context, s *store.Store, ref *ReferenceResponse, poolInfoByID map[int64]PoolInfo) error {
 	for _, pool := range ref.Pools {
 		seriesID := pool.SeriesID
+		info, hasInfo := poolInfoByID[pool.PoolID]
+
+		var drawsallowed *int64
+		var playoffTemplate string
+		if hasInfo {
+			d := info.Drawsallowed.Int64()
+			drawsallowed = &d
+			if info.PlayoffTemplate != nil {
+				playoffTemplate = *info.PlayoffTemplate
+			}
+		}
+
 		if err := s.InsertPool(ctx, store.Pool{
-			PoolID:         pool.PoolID,
-			Name:           pool.PoolName,
-			Ordering:       pool.Ordering,
-			Visible:        pool.Visible,
-			Continuingpool: pool.Continuing,
-			Placementpool:  pool.Placementpool,
-			Played:         pool.Played,
-			Series:         &seriesID,
-			Type:           pool.Type,
+			PoolID:          pool.PoolID,
+			Name:            pool.PoolName,
+			Ordering:        pool.Ordering,
+			Visible:         pool.Visible,
+			Continuingpool:  pool.Continuing,
+			Placementpool:   pool.Placementpool,
+			Played:          pool.Played,
+			Series:          &seriesID,
+			Type:            pool.Type,
+			Drawsallowed:    drawsallowed,
+			PlayoffTemplate: playoffTemplate,
 		}); err != nil {
 			return fmt.Errorf("insert pool %d: %w", pool.PoolID, err)
 		}
@@ -242,12 +285,33 @@ func importPlayers(ctx context.Context, s *store.Store, teamID int64, players []
 	return nil
 }
 
+// importPoolPlacements write the pool_placements table
+// Must be run after importPools and importTeams
+//
+// sourced from:
+// reference endpoint pool_placements[]
+func importPoolPlacements(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+	for _, placement := range ref.PoolPlacements {
+		if err := s.InsertPoolPlacement(ctx, store.PoolPlacement{
+			PoolID:    placement.PoolID,
+			TeamID:    placement.TeamID,
+			Placement: placement.Placement,
+		}); err != nil {
+			return fmt.Errorf("insert pool placement %d/%d: %w", placement.PoolID, placement.TeamID, err)
+		}
+	}
+	return nil
+}
+
 // importGames writes the games table
 // Must be run after importPools, importTeams and importReservations
 //
 // sourced from:
 // games endpoint (game ids to enumerate)
-// game detail endpoint game_result
+// game detail endpoint game_result -- the only endpoint where nothing is falsy-stripped
+//
+// No pool: not a games column on this line, see game_pools. No homesotg/visitorsotg:
+// derivable from spirit_scores, see the games table's own comment.
 func importGames(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
 	for _, detail := range detailByGameID {
 		gr := detail.GameResult
@@ -263,14 +327,11 @@ func importGames(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 			Visitorscore:          gr.Visitorscore,
 			Reservation:           gr.Reservation,
 			Time:                  gr.Time,
-			Pool:                  gr.Pool,
 			Valid:                 gr.Valid,
 			Halftime:              gr.Halftime,
 			Official:              gr.Official,
 			Respteam:              gr.Respteam,
 			Resppers:              gr.Resppers,
-			Homesotg:              gr.Homesotg,
-			Visitorsotg:           gr.Visitorsotg,
 			Isongoing:             gr.Isongoing,
 			SchedulingNameHome:    gr.SchedulingNameHome,
 			SchedulingNameVisitor: gr.SchedulingNameVisitor,
@@ -280,8 +341,37 @@ func importGames(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 			Visitordefenses:       gr.Visitordefenses,
 			Islive:                gr.Islive,
 			Liveurl:               gr.Liveurl,
+			Hasstarted:            gr.Hasstarted,
+			ShowSpirit:            gr.ShowSpirit,
+			TimerStart:            gr.TimerStart,
+			TimerPauseStart:       gr.TimerPauseStart,
+			TimerPausedDuration:   gr.TimerPausedDuration,
+			Forfeit:               gr.Forfeit,
 		}); err != nil {
 			return fmt.Errorf("insert game %d: %w", gr.GameID, err)
+		}
+	}
+	return nil
+}
+
+// importGamePools writes the game_pools table
+// Must be run after importGames and importPools
+//
+// sourced from:
+// games endpoint (every pool a game belongs to, via GamePoolsByGameID)
+// game detail endpoint game_result.pool (the owning pool, to set timetable)
+func importGamePools(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse, poolsByGameID map[int64][]int64) error {
+	for gameID, detail := range detailByGameID {
+		owning := detail.GameResult.Pool
+		for _, poolID := range poolsByGameID[gameID] {
+			timetable := convert.IntBool(owning != nil && *owning == poolID)
+			if err := s.InsertGamePool(ctx, store.GamePool{
+				GameID:    gameID,
+				PoolID:    poolID,
+				Timetable: timetable,
+			}); err != nil {
+				return fmt.Errorf("insert game pool %d/%d: %w", gameID, poolID, err)
+			}
 		}
 	}
 	return nil
@@ -305,6 +395,7 @@ func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 				Visitorscore: &g.Visitorscore,
 				Ishomegoal:   g.Ishomegoal,
 				Iscallahan:   g.Iscallahan,
+				Timestamp:    g.Timestamp,
 			}); err != nil {
 				return fmt.Errorf("insert goal %d/%d: %w", gameID, g.Num, err)
 			}
@@ -313,35 +404,125 @@ func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 	return nil
 }
 
+// importSpiritCategories writes the spirit_categories table
+//
+// sourced from:
+// reference endpoint season.spiritCategories[]
+func importSpiritCategories(ctx context.Context, s *store.Store, ref *ReferenceResponse) error {
+	for _, cat := range ref.Season.SpiritCategories {
+		if err := s.InsertSpiritCategory(ctx, store.SpiritCategory{
+			CategoryID:    cat.CategoryID,
+			Mode:          modeOrZero(ref.Season.SpiritMode),
+			CategoryGroup: cat.Group,
+			Ordering:      cat.Index,
+			Min:           cat.Min,
+			Max:           cat.Max,
+			Factor:        cat.Factor,
+			Label:         cat.Label,
+		}); err != nil {
+			return fmt.Errorf("insert spirit category %d: %w", cat.CategoryID, err)
+		}
+	}
+	return nil
+}
+
+// spiritSide pairs one side of GameSpiritStats with the team id it belongs to,
+// resolved from game_result
+// GameSpiritScore itself no longer carries team_id on this line, the
+// parent object's key (hometeam/visitorteam) is the only thing that says which team a
+// score is for
+type spiritSide struct {
+	score  *GameSpiritScore
+	teamID *int64
+}
+
+// spiritSides pairs both sides of one game's SpiritStats with their resolved team ids,
+// skipping a side with no score or an unresolved team
+// (an unresolved bracket slot has no team id to attach a spirit score/comment to)
+func spiritSides(detail *GameDetailResponse) []spiritSide {
+	all := []spiritSide{
+		{detail.SpiritStats.Hometeam, detail.GameResult.Hometeam},
+		{detail.SpiritStats.Visitorteam, detail.GameResult.Visitorteam},
+	}
+	sides := make([]spiritSide, 0, len(all))
+	for _, side := range all {
+		if side.score != nil && side.teamID != nil {
+			sides = append(sides, side)
+		}
+	}
+	return sides
+}
+
 // importSpiritScores writes the spirit_scores table
-// Must be run after importGames and importTeams
+// Must be run after importGames, importTeams and importSpiritCategories
 //
 // sourced from:
 // game detail endpoint spiritstats
-func importSpiritScores(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
+// reference endpoint season.spiritCategories[] (to resolve a "catN" key to a category_id)
+func importSpiritScores(ctx context.Context, s *store.Store, ref *ReferenceResponse, detailByGameID map[int64]*GameDetailResponse) error {
+	categoryIDByKey := make(map[string]int64, len(ref.Season.SpiritCategories))
+	for _, cat := range ref.Season.SpiritCategories {
+		categoryIDByKey[cat.Key] = cat.CategoryID
+	}
+
 	for gameID, detail := range detailByGameID {
 		if detail.SpiritStats == nil {
 			continue // event doesn't publish spirit points
 		}
-		for _, score := range []*GameSpiritScore{detail.SpiritStats.Hometeam, detail.SpiritStats.Visitorteam} {
-			if score == nil {
-				continue
-			}
-			if err := s.InsertSpiritScore(ctx, store.SpiritScore{
-				GameID:   gameID,
-				TeamID:   score.TeamID,
-				Cat1:     score.Cat1,
-				Cat2:     score.Cat2,
-				Cat3:     score.Cat3,
-				Cat4:     score.Cat4,
-				Cat5:     score.Cat5,
-				Comments: score.Comments,
-			}); err != nil {
-				return fmt.Errorf("insert spirit score game %d team %d: %w", gameID, score.TeamID, err)
+		for _, side := range spiritSides(detail) {
+			teamID := *side.teamID
+			for key, value := range side.score.Categories {
+				categoryID, ok := categoryIDByKey[key]
+				if !ok {
+					return fmt.Errorf("game %d: spirit category %q not in season.spiritCategories", gameID, key)
+				}
+				if err := s.InsertSpiritScore(ctx, store.SpiritScore{
+					GameID:     gameID,
+					TeamID:     teamID,
+					CategoryID: categoryID,
+					Value:      value,
+				}); err != nil {
+					return fmt.Errorf("insert spirit score game %d team %d category %s: %w", gameID, teamID, key, err)
+				}
 			}
 		}
 	}
 	return nil
+}
+
+// importSpiritComments writes the spirit_comments table
+// Must be run after importGames and importTeams
+//
+// sourced from:
+// game detail endpoint spiritstats
+func importSpiritComments(ctx context.Context, s *store.Store, detailByGameID map[int64]*GameDetailResponse) error {
+	for gameID, detail := range detailByGameID {
+		if detail.SpiritStats == nil {
+			continue
+		}
+		for _, side := range spiritSides(detail) {
+			if side.score.Comments == nil {
+				continue
+			}
+			teamID := *side.teamID
+			if err := s.InsertSpiritComment(ctx, store.SpiritComment{
+				GameID:  gameID,
+				TeamID:  teamID,
+				Comment: *side.score.Comments,
+			}); err != nil {
+				return fmt.Errorf("insert spirit comment game %d team %d: %w", gameID, teamID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// modeOrZero unwraps season.spiritmode, defaulting to 0 when the season has none.
+func modeOrZero(mode *int64) int64 {
+	if mode == nil {
+		return 0
+	}
+	return *mode
 }
 
 // parseSchedulingNameID parses GameResult.Name, sent as a numeric string because `name`
@@ -358,10 +539,9 @@ func parseSchedulingNameID(s *string) (*int64, error) {
 	return &id, nil
 }
 
-// zeroToNil normalizes goal scorer/assist "not recorded" sentinels to nil, since neither
-// is ever a real player_id and both would violate the FK. The spec only documents 0, but
-// -1 shows up in practice too -- the same sentinel the API uses for homecaptain/
-// awaycaptain -- so anything non-positive is treated as unrecorded.
+// zeroToNil normalizes an API "not recorded" sentinel to nil: goal scorer/assist and
+// reservation.location all use non-positive values (0, or -1 for goals) to mean "unset,"
+// none of which are ever a real id and all of which would violate an FK.
 func zeroToNil(id *int64) *int64 {
 	if id == nil || *id <= 0 {
 		return nil

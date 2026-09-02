@@ -8,10 +8,11 @@ import (
 // Snapshot bundles everything Gather fetches from one deployment in a single archive
 // run, so Import can write it all in one pass.
 type Snapshot struct {
-	Heartbeat      *HeartbeatResponse
-	Reference      *ReferenceResponse
-	TeamDetailByID map[int64]*TeamDetailResponse
-	GameDetailByID map[int64]*GameDetailResponse
+	Heartbeat         *HeartbeatResponse
+	Reference         *ReferenceResponse
+	TeamDetailByID    map[int64]*TeamDetailResponse
+	GameDetailByID    map[int64]*GameDetailResponse
+	GamePoolsByGameID map[int64][]int64
 }
 
 // Gather fetches every response this archiver needs from one deployment: the heartbeat,
@@ -43,18 +44,21 @@ func Gather(ctx context.Context, client *Client) (*Snapshot, error) {
 	}
 
 	detailByGameID := make(map[int64]*GameDetailResponse, len(games.Games))
+	poolsByGameID := make(map[int64][]int64, len(games.Games))
 	for _, game := range games.Games {
 		detail, err := client.FetchGameDetail(ctx, game.GameID)
 		if err != nil {
 			return nil, fmt.Errorf("fetch game detail %d: %w", game.GameID, err)
 		}
 		detailByGameID[detail.GameResult.GameID] = detail
+		poolsByGameID[game.GameID] = game.Pools
 	}
 
 	return &Snapshot{
-		Heartbeat:      hb,
-		Reference:      ref,
-		TeamDetailByID: detailByTeamID,
-		GameDetailByID: detailByGameID,
+		Heartbeat:         hb,
+		Reference:         ref,
+		TeamDetailByID:    detailByTeamID,
+		GameDetailByID:    detailByGameID,
+		GamePoolsByGameID: poolsByGameID,
 	}, nil
 }
