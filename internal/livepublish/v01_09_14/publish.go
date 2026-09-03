@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/cxd309/ultimate-tournament-results/internal/liveclient"
 	livepublish "github.com/cxd309/ultimate-tournament-results/internal/livepublish"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
@@ -14,6 +15,9 @@ import (
 // Publish reads back a 1.9.14-1.9.17 archive at dbPath
 // writes every endpoint's JSON under outDir/<seasonId>/
 // using the live API's own relative filenames
+//
+// prints its own progress: one file per team and per game, so a big
+// tournament writes hundreds of files with nothing else to show for it
 func Publish(ctx context.Context, dbPath, outDir string) error {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -21,6 +25,7 @@ func Publish(ctx context.Context, dbPath, outDir string) error {
 	}
 	defer db.Close()
 
+	fmt.Printf("loading %s...\n", dbPath)
 	data, err := load(ctx, store.New(db))
 	if err != nil {
 		return fmt.Errorf("load %s: %w", dbPath, err)
@@ -28,6 +33,7 @@ func Publish(ctx context.Context, dbPath, outDir string) error {
 
 	dir := filepath.Join(outDir, data.tournament.SeasonID)
 	prefix := data.tournament.SeasonID
+	fmt.Printf("publishing %q (%d teams, %d games) to %s\n", data.tournament.Name, len(data.teams), len(data.games), dir)
 
 	if err := livepublish.WriteJSON(dir, "_heartbeat.json", renderHeartbeat(data)); err != nil {
 		return err
@@ -35,22 +41,30 @@ func Publish(ctx context.Context, dbPath, outDir string) error {
 	if err := livepublish.WriteJSON(dir, prefix+"_reference.json", renderReference(data)); err != nil {
 		return err
 	}
-	for _, team := range data.teams {
+
+	fmt.Printf("writing %d team files...\n", len(data.teams))
+	for i, team := range data.teams {
 		filename := fmt.Sprintf("%s_teams_%d.json", prefix, team.TeamID)
 		if err := livepublish.WriteJSON(dir, filename, renderTeamDetail(data, team)); err != nil {
 			return err
 		}
+		liveclient.PrintProgress(i+1, len(data.teams), 10)
 	}
+
 	if err := livepublish.WriteJSON(dir, prefix+"_games.json", renderGames(data)); err != nil {
 		return err
 	}
-	for _, game := range data.games {
+
+	fmt.Printf("writing %d game files...\n", len(data.games))
+	for i, game := range data.games {
 		filename := fmt.Sprintf("%s_games_%d.json", prefix, game.GameID)
 		if err := livepublish.WriteJSON(dir, filename, renderGameDetail(data, game)); err != nil {
 			return err
 		}
+		liveclient.PrintProgress(i+1, len(data.games), 25)
 	}
 
+	fmt.Printf("published %s to %s\n", dbPath, dir)
 	return nil
 }
 
