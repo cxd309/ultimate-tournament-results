@@ -390,8 +390,8 @@ func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 			if err := s.InsertGoal(ctx, store.Goal{
 				GameID:       gameID,
 				Num:          g.Num,
-				Assist:       zeroToNil(g.Assist),
-				Scorer:       zeroToNil(g.Scorer),
+				Assist:       convert.NilIfNotPositive(g.Assist),
+				Scorer:       convert.NilIfNotPositive(g.Scorer),
 				Time:         g.Time,
 				Homescore:    &g.Homescore,
 				Visitorscore: &g.Visitorscore,
@@ -448,15 +448,4 @@ func parseSchedulingNameID(s *string) (*int64, error) {
 		return nil, fmt.Errorf("parse scheduling name id %q: %w", *s, err)
 	}
 	return &id, nil
-}
-
-// zeroToNil normalizes goal scorer/assist "not recorded" sentinels to nil, since neither
-// is ever a real player_id and both would violate the FK. The spec only documents 0, but
-// -1 shows up in practice too -- the same sentinel the API uses for homecaptain/
-// awaycaptain -- so anything non-positive is treated as unrecorded.
-func zeroToNil(id *int64) *int64 {
-	if id == nil || *id <= 0 {
-		return nil
-	}
-	return id
 }

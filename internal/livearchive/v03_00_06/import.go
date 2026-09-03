@@ -148,7 +148,7 @@ func importCountries(ctx context.Context, s *store.Store, ref *livedatamodel.Ref
 func importLocations(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse) error {
 	seen := make(map[int64]bool, len(ref.Reservations))
 	for _, res := range ref.Reservations {
-		locationID := zeroToNil(res.Location)
+		locationID := convert.NilIfNotPositive(res.Location)
 		if locationID == nil || seen[*locationID] {
 			continue
 		}
@@ -172,7 +172,7 @@ func importReservations(ctx context.Context, s *store.Store, ref *livedatamodel.
 	for _, res := range ref.Reservations {
 		if err := s.InsertReservation(ctx, store.Reservation{
 			ID:               res.ID,
-			Location:         zeroToNil(res.Location),
+			Location:         convert.NilIfNotPositive(res.Location),
 			FieldName:        res.FieldName,
 			ReservationGroup: res.ReservationGroup,
 		}); err != nil {
@@ -466,8 +466,8 @@ func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 			if err := s.InsertGoal(ctx, store.Goal{
 				GameID:       gameID,
 				Num:          g.Num,
-				Assist:       zeroToNil(g.Assist),
-				Scorer:       zeroToNil(g.Scorer),
+				Assist:       convert.NilIfNotPositive(g.Assist),
+				Scorer:       convert.NilIfNotPositive(g.Scorer),
 				Time:         g.Time,
 				Homescore:    &g.Homescore,
 				Visitorscore: &g.Visitorscore,
@@ -615,14 +615,4 @@ func parseSchedulingNameID(s *string) (*int64, error) {
 		return nil, fmt.Errorf("parse scheduling name id %q: %w", *s, err)
 	}
 	return &id, nil
-}
-
-// zeroToNil normalizes an API "not recorded" sentinel to nil: goal scorer/assist and
-// reservation.location all use non-positive values (0, or -1 for goals) to mean "unset,"
-// none of which are ever a real id and all of which would violate an FK.
-func zeroToNil(id *int64) *int64 {
-	if id == nil || *id <= 0 {
-		return nil
-	}
-	return id
 }
