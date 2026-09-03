@@ -448,7 +448,7 @@ func renderSpiritStats(data *tournamentData, game store.Game) *livedatamodel.Gam
 		score.Categories[key] = sc.Value
 	}
 
-	stats := &livedatamodel.GameSpiritStats{}
+	stats := &livedatamodel.GameSpiritStats{Note: spiritStatsNote}
 	if game.Hometeam != nil {
 		stats.Hometeam = byTeam[*game.Hometeam]
 	}
@@ -457,6 +457,10 @@ func renderSpiritStats(data *tournamentData, game store.Game) *livedatamodel.Gam
 	}
 	return stats
 }
+
+// spiritStatsNote is a fixed literal string the live API sends unchanged
+// on every game's spiritstats
+const spiritStatsNote = "These are the scores FOR the specified team"
 
 // renderScoreboard builds one team's full roster for this game
 // each player's done/fedin/total counted from this game's own goals
@@ -470,10 +474,13 @@ func renderScoreboard(data *tournamentData, teamID *int64, gameID int64) []lived
 
 	scoreboard := make([]livedatamodel.GameScoreboardPlayer, len(roster))
 	for i, p := range roster {
-		var done, fedin int64
+		var done, fedin, callahan int64
 		for _, g := range goals {
 			if g.Scorer != nil && *g.Scorer == p.PlayerID {
 				done++
+				if g.Iscallahan {
+					callahan++
+				}
 			}
 			if g.Assist != nil && *g.Assist == p.PlayerID {
 				fedin++
@@ -486,6 +493,7 @@ func renderScoreboard(data *tournamentData, teamID *int64, gameID int64) []lived
 			Num:       p.Num,
 			Done:      done,
 			Fedin:     fedin,
+			Callahan:  callahan,
 			Total:     done + fedin,
 		}
 	}
@@ -493,7 +501,7 @@ func renderScoreboard(data *tournamentData, teamID *int64, gameID int64) []lived
 	// matches the ordering observed from a real deployment
 	sort.SliceStable(scoreboard, func(i, j int) bool {
 		if scoreboard[i].Total != scoreboard[j].Total {
-		return scoreboard[i].Total > scoreboard[j].Total
+			return scoreboard[i].Total > scoreboard[j].Total
 		}
 		return scoreboard[i].Done > scoreboard[j].Done
 	})
