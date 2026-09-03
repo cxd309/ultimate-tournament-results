@@ -18,3 +18,18 @@ func (s *Store) InsertLocation(ctx context.Context, l Location) error {
 		Name: l.Name,
 	})
 }
+
+func (s *Store) ListLocations(ctx context.Context) ([]Location, error) {
+	rows, err := s.q.ListLocations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	locations := make([]Location, len(rows))
+	for i, row := range rows {
+		locations[i] = Location{
+			ID:   row.ID,
+			Name: row.Name,
+		}
+	}
+	return locations, nil
+}

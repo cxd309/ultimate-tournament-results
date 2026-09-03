@@ -34,3 +34,25 @@ func (s *Store) InsertGoal(ctx context.Context, g Goal) error {
 		Iscallahan:   g.Iscallahan.Int64(),
 	})
 }
+
+func (s *Store) ListGoals(ctx context.Context) ([]Goal, error) {
+	rows, err := s.q.ListGoals(ctx)
+	if err != nil {
+		return nil, err
+	}
+	goals := make([]Goal, len(rows))
+	for i, row := range rows {
+		goals[i] = Goal{
+			GameID:       row.GameID,
+			Num:          row.Num,
+			Assist:       convert.Int64(row.Assist),
+			Scorer:       convert.Int64(row.Scorer),
+			Time:         convert.Int64(row.Time),
+			Homescore:    convert.Int64(row.Homescore),
+			Visitorscore: convert.Int64(row.Visitorscore),
+			Ishomegoal:   convert.IntBoolFromInt64(row.Ishomegoal),
+			Iscallahan:   convert.IntBoolFromInt64(row.Iscallahan),
+		}
+	}
+	return goals, nil
+}

@@ -63,3 +63,40 @@ func (s *Store) InsertGame(ctx context.Context, g Game) error {
 		Liveurl:               convert.NullString(g.Liveurl),
 	})
 }
+
+func (s *Store) ListGames(ctx context.Context) ([]Game, error) {
+	rows, err := s.q.ListGames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	games := make([]Game, len(rows))
+	for i, row := range rows {
+		games[i] = Game{
+			GameID:                row.GameID,
+			Hometeam:              convert.Int64(row.Hometeam),
+			Visitorteam:           convert.Int64(row.Visitorteam),
+			Homescore:             convert.Int64(row.Homescore),
+			Visitorscore:          convert.Int64(row.Visitorscore),
+			Reservation:           convert.Int64(row.Reservation),
+			Time:                  convert.String(row.Time),
+			Pool:                  convert.Int64(row.Pool),
+			Valid:                 convert.IntBoolFromInt64(row.Valid),
+			Halftime:              convert.Int64(row.Halftime),
+			Official:              convert.String(row.Official),
+			Respteam:              convert.Int64(row.Respteam),
+			Resppers:              convert.Int64(row.Resppers),
+			Homesotg:              convert.Int64(row.Homesotg),
+			Visitorsotg:           convert.Int64(row.Visitorsotg),
+			Isongoing:             convert.IntBoolFromInt64(row.Isongoing.Int64),
+			SchedulingNameHome:    convert.Int64(row.SchedulingNameHome),
+			SchedulingNameVisitor: convert.Int64(row.SchedulingNameVisitor),
+			Name:                  convert.Int64(row.Name),
+			Timeslot:              convert.Int64(row.Timeslot),
+			Homedefenses:          convert.Int64(row.Homedefenses),
+			Visitordefenses:       convert.Int64(row.Visitordefenses),
+			Islive:                convert.IntBoolFromInt64(row.Islive.Int64),
+			Liveurl:               convert.String(row.Liveurl),
+		}
+	}
+	return games, nil
+}

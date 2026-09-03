@@ -24,3 +24,20 @@ func (s *Store) InsertReservation(ctx context.Context, r Reservation) error {
 		Reservationgroup: convert.NullString(r.ReservationGroup),
 	})
 }
+
+func (s *Store) ListReservations(ctx context.Context) ([]Reservation, error) {
+	rows, err := s.q.ListReservations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	reservations := make([]Reservation, len(rows))
+	for i, row := range rows {
+		reservations[i] = Reservation{
+			ID:               row.ID,
+			Location:         row.Location,
+			FieldName:        convert.String(row.Fieldname),
+			ReservationGroup: convert.String(row.Reservationgroup),
+		}
+	}
+	return reservations, nil
+}

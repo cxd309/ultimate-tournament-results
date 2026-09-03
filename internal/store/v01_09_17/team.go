@@ -38,3 +38,27 @@ func (s *Store) InsertTeam(ctx context.Context, t Team) error {
 		ClubName:                convert.NullString(t.ClubName),
 	})
 }
+
+func (s *Store) ListTeams(ctx context.Context) ([]Team, error) {
+	rows, err := s.q.ListTeams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	teams := make([]Team, len(rows))
+	for i, row := range rows {
+		teams[i] = Team{
+			TeamID:                  row.TeamID,
+			Name:                    convert.String(row.Name),
+			Pool:                    convert.Int64(row.Pool),
+			Rank:                    convert.Int64(row.Rank),
+			Valid:                   convert.IntBoolFromInt64(row.Valid),
+			Series:                  convert.Int64(row.Series),
+			Country:                 convert.Int64(row.Country),
+			Abbreviation:            convert.String(row.Abbreviation),
+			FinalStanding:           convert.Int64(row.FinalStanding),
+			FinalStandingCalculated: convert.Int64(row.FinalStandingCalculated),
+			ClubName:                convert.String(row.ClubName),
+		}
+	}
+	return teams, nil
+}

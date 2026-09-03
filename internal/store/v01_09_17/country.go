@@ -23,3 +23,20 @@ func (s *Store) InsertCountry(ctx context.Context, c Country) error {
 		FlagFile:     convert.NullString(c.FlagFile),
 	})
 }
+
+func (s *Store) ListCountries(ctx context.Context) ([]Country, error) {
+	rows, err := s.q.ListCountries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	countries := make([]Country, len(rows))
+	for i, row := range rows {
+		countries[i] = Country{
+			CountryID:    row.CountryID,
+			Name:         row.Name,
+			Abbreviation: convert.String(row.Abbreviation),
+			FlagFile:     convert.String(row.FlagFile),
+		}
+	}
+	return countries, nil
+}
