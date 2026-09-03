@@ -410,26 +410,38 @@ func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 //
 // sourced from:
 // game detail endpoint spiritstats
+//
+// spiritstats.hometeam/visitorteam carry their own game_id/team_id per the spec, but at
+// least one deployment (wjuc.wfdf.sport) omits them -- both then decode as the zero value,
+// so trusting them collides both scores onto team_id=0. The enclosing game_result's
+// hometeam/visitorteam are never stripped and already fix which team each key means (see
+// GameSpiritStats), so use those instead of the sub-object's own (possibly absent) team_id.
 func importSpiritScores(ctx context.Context, s *store.Store, detailByGameID map[int64]*livedatamodel.GameDetailResponse) error {
 	for gameID, detail := range detailByGameID {
 		if detail.SpiritStats == nil {
 			continue // event doesn't publish spirit points
 		}
-		for _, score := range []*livedatamodel.GameSpiritScore{detail.SpiritStats.Hometeam, detail.SpiritStats.Visitorteam} {
-			if score == nil {
-				continue
+		for _, pair := range []struct {
+			score  *livedatamodel.GameSpiritScore
+			teamID *int64
+		}{
+			{detail.SpiritStats.Hometeam, detail.GameResult.Hometeam},
+			{detail.SpiritStats.Visitorteam, detail.GameResult.Visitorteam},
+		} {
+			if pair.score == nil || pair.teamID == nil {
+				continue // no score, or an unresolved bracket slot with no real team to attribute it to
 			}
 			if err := s.InsertSpiritScore(ctx, store.SpiritScore{
 				GameID:   gameID,
-				TeamID:   score.TeamID,
-				Cat1:     score.Cat1,
-				Cat2:     score.Cat2,
-				Cat3:     score.Cat3,
-				Cat4:     score.Cat4,
-				Cat5:     score.Cat5,
-				Comments: score.Comments,
+				TeamID:   *pair.teamID,
+				Cat1:     pair.score.Cat1,
+				Cat2:     pair.score.Cat2,
+				Cat3:     pair.score.Cat3,
+				Cat4:     pair.score.Cat4,
+				Cat5:     pair.score.Cat5,
+				Comments: pair.score.Comments,
 			}); err != nil {
-				return fmt.Errorf("insert spirit score game %d team %d: %w", gameID, score.TeamID, err)
+				return fmt.Errorf("insert spirit score game %d team %d: %w", gameID, *pair.teamID, err)
 			}
 		}
 	}
