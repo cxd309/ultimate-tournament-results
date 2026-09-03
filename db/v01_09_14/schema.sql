@@ -1,4 +1,6 @@
--- Schema for a single tournament archived from a Live! by BULA 1.9.14-1.9.16 deployment.
+-- Schema for a single tournament archived from a Live! by BULA 1.9.14-1.9.17 deployment
+--
+-- 1.9.14 through 1.9.17 share this one schema
 --
 -- Every table mirrors the underlying UltiOrganizer table it's drawn from
 -- with the original MySQL type noted per column.

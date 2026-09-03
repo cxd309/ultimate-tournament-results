@@ -32,3 +32,24 @@ func (s *Store) InsertSpiritScore(ctx context.Context, sc SpiritScore) error {
 		Comments: convert.NullString(sc.Comments),
 	})
 }
+
+func (s *Store) ListSpiritScores(ctx context.Context) ([]SpiritScore, error) {
+	rows, err := s.q.ListSpiritScores(ctx)
+	if err != nil {
+		return nil, err
+	}
+	scores := make([]SpiritScore, len(rows))
+	for i, row := range rows {
+		scores[i] = SpiritScore{
+			GameID:   row.GameID,
+			TeamID:   row.TeamID,
+			Cat1:     row.Cat1,
+			Cat2:     row.Cat2,
+			Cat3:     row.Cat3,
+			Cat4:     row.Cat4,
+			Cat5:     row.Cat5,
+			Comments: convert.String(row.Comments),
+		}
+	}
+	return scores, nil
+}

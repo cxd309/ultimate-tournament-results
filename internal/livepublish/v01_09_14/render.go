@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
-	livedatamodel "github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v01_09_17"
-	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_17"
+	livedatamodel "github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v01_09_14"
+	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
 
 // liveRoundMinutes is the fixed buffer PHP calls LIVE_ROUND_MINUTES

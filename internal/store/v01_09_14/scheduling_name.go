@@ -19,3 +19,18 @@ func (s *Store) InsertSchedulingName(ctx context.Context, sn SchedulingName) err
 		Name:         sn.Name,
 	})
 }
+
+func (s *Store) ListSchedulingNames(ctx context.Context) ([]SchedulingName, error) {
+	rows, err := s.q.ListSchedulingNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]SchedulingName, len(rows))
+	for i, row := range rows {
+		names[i] = SchedulingName{
+			SchedulingID: row.SchedulingID,
+			Name:         row.Name,
+		}
+	}
+	return names, nil
+}

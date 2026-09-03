@@ -1,4 +1,4 @@
-// Package store is the direct interface to a 1.9.14 tournament's SQLite archive.
+// Package store is the direct interface to a 1.9.14-1.9.17 tournament's SQLite archive
 // Wraps internal/db/ generated queries and translates to and from plain Go types
 package store
 

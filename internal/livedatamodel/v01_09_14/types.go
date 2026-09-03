@@ -1,4 +1,4 @@
-// Package livedatamodel models the Live! by BULA 1.9.14-1.9.16 API response shapes
+// Package livedatamodel models the Live! by BULA 1.9.14-1.9.17 API response shapes
 // see live-by-bula-openapi's openapi-1.9.14.yaml
 package livedatamodel
 
@@ -48,6 +48,22 @@ type Season struct {
 	Isnationalteams convert.IntBool `json:"isnationalteams"`
 	Timezone        string          `json:"timezone"`
 	Status          string          `json:"status"`
+	// Timeslots..GameTimesByDay are all computed at request time from data
+	// already covered elsewhere, not stored as their own columns
+	Timeslots      []int64             `json:"timeslots"`
+	PlayerCount    int64               `json:"player_count"`
+	UtcOffset      string              `json:"utcOffset"`
+	Spirit         convert.IntBool     `json:"spirit"`
+	GameTimesByDay map[string]DayTimes `json:"gameTimesByDay"`
+}
+
+// DayTimes is one entry in Season.GameTimesByDay
+// the first and last game start times on one day, plus End
+// End is Last plus the fixed round buffer (LiveRoundMinutes)
+type DayTimes struct {
+	First string `json:"first"`
+	Last  string `json:"last"`
+	End   string `json:"end"`
 }
 
 // Series is one entry in ReferenceResponse.Series, a division
@@ -150,15 +166,34 @@ type GameListEntry struct {
 // GameDetailResponse is the response of GET {basePath}{seasonId}_games_{gameId}.json
 // See openapi-1.9.14.yaml #/components/schemas/GameDetailResponse
 //
-// seasoninfo, teams, the two scoreboards, gameevents/mediaevents and the captains are
-// all either derivable from data already stored elsewhere or out of scope for this
+// seasoninfo, teams, gameevents/mediaevents and the captains are all either
+// derivable from data already stored elsewhere or out of scope for this
 // schema, game_info/poolinfo are only partially modeled, see GameInfo/PoolInfo
 type GameDetailResponse struct {
-	GameResult  GameResult       `json:"game_result"`
-	GameInfo    *GameInfo        `json:"game_info"`
-	PoolInfo    *PoolInfo        `json:"poolinfo"`
-	Goals       []Goal           `json:"goals"`
-	SpiritStats *GameSpiritStats `json:"spiritstats"` // absent when the event doesn't publish spirit points
+	GameResult            GameResult             `json:"game_result"`
+	GameInfo              *GameInfo              `json:"game_info"`
+	PoolInfo              *PoolInfo              `json:"poolinfo"`
+	Goals                 []Goal                 `json:"goals"`
+	SpiritStats           *GameSpiritStats       `json:"spiritstats"` // absent when the event doesn't publish spirit points
+	HometeamScoreboard    []GameScoreboardPlayer `json:"hometeam_scoreboard"`
+	VisitorteamScoreboard []GameScoreboardPlayer `json:"visitorteam_scoreboard"`
+}
+
+// GameScoreboardPlayer is one entry in GameDetailResponse's two scoreboards
+// a team's full roster for this game, each with this game's own
+// done (goals)/fedin (assists)/total, not season totals
+//
+// the live API also sends profile_id here, a separate cross-event player
+// identity this archiver doesn't capture anywhere, so it's left out
+// rather than guessed
+type GameScoreboardPlayer struct {
+	PlayerID  int64  `json:"player_id"`
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Num       *int64 `json:"num"`
+	Done      int64  `json:"done"`
+	Fedin     int64  `json:"fedin"`
+	Total     int64  `json:"total"`
 }
 
 // GameInfo is GameDetailResponse.GameInfo: the display view of the game

@@ -12,24 +12,23 @@ import (
 
 	"github.com/cxd309/ultimate-tournament-results/internal/livearchive"
 	livearchive010914 "github.com/cxd309/ultimate-tournament-results/internal/livearchive/v01_09_14"
-	livearchive010917 "github.com/cxd309/ultimate-tournament-results/internal/livearchive/v01_09_17"
 	livearchive030006 "github.com/cxd309/ultimate-tournament-results/internal/livearchive/v03_00_06"
 	livepublish010914 "github.com/cxd309/ultimate-tournament-results/internal/livepublish/v01_09_14"
-	livepublish010917 "github.com/cxd309/ultimate-tournament-results/internal/livepublish/v01_09_17"
 	livepublish030006 "github.com/cxd309/ultimate-tournament-results/internal/livepublish/v03_00_06"
 )
 
 // Version is one Live! by BULA spec implementation, keyed by its binary-version string
-// (e.g. "v01_09_17")
+// (e.g. "v01_09_14")
 type Version struct {
 	Key     string
 	Archive func(ctx context.Context, host, basePath, slug, dbPath string) (livearchive.Summary, error)
 	Publish func(ctx context.Context, dbPath, outDir string) error
 }
 
+// v01_09_14 covers 1.9.14 through 1.9.17
+// see the README's compatibility table
 var registry = map[string]Version{
 	"v01_09_14": {Key: "v01_09_14", Archive: livearchive010914.Archive, Publish: livepublish010914.Publish},
-	"v01_09_17": {Key: "v01_09_17", Archive: livearchive010917.Archive, Publish: livepublish010917.Publish},
 	"v03_00_06": {Key: "v03_00_06", Archive: livearchive030006.Archive, Publish: livepublish030006.Publish},
 }
 
