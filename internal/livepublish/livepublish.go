@@ -23,7 +23,7 @@ func WriteJSON(dir, filename string, v any) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", dir, err)
 	}
-	data, err := json.MarshalIndent(v, "", "  ")
+	data, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", filename, err)
 	}
