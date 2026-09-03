@@ -8,6 +8,7 @@ import (
 )
 
 // Game is the plain-Go-typed form of a single row in the games table
+// Islive is a plain int64 pointer, not IntBool: observed values go beyond 0/1
 type Game struct {
 	GameID                int64
 	Hometeam              *int64 // nil for an unresolved bracket slot
@@ -31,7 +32,7 @@ type Game struct {
 	Timeslot              *int64
 	Homedefenses          *int64
 	Visitordefenses       *int64
-	Islive                convert.IntBool
+	Islive                *int64
 	Liveurl               string
 }
 
@@ -59,7 +60,7 @@ func (s *Store) InsertGame(ctx context.Context, g Game) error {
 		Timeslot:              convert.NullInt64(g.Timeslot),
 		Homedefenses:          convert.NullInt64(g.Homedefenses),
 		Visitordefenses:       convert.NullInt64(g.Visitordefenses),
-		Islive:                g.Islive.NullInt64(),
+		Islive:                convert.NullInt64(g.Islive),
 		Liveurl:               convert.NullString(g.Liveurl),
 	})
 }
@@ -94,7 +95,7 @@ func (s *Store) ListGames(ctx context.Context) ([]Game, error) {
 			Timeslot:              convert.Int64(row.Timeslot),
 			Homedefenses:          convert.Int64(row.Homedefenses),
 			Visitordefenses:       convert.Int64(row.Visitordefenses),
-			Islive:                convert.IntBoolFromInt64(row.Islive.Int64),
+			Islive:                convert.Int64(row.Islive),
 			Liveurl:               convert.String(row.Liveurl),
 		}
 	}

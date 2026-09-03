@@ -262,7 +262,7 @@ type GameResult struct {
 	Timeslot              *int64          `json:"timeslot"`
 	Homedefenses          *int64          `json:"homedefenses"`
 	Visitordefenses       *int64          `json:"visitordefenses"`
-	Islive                convert.IntBool `json:"islive"`
+	Islive                *int64          `json:"islive"` // has been seen with values beyond 0/1 (e.g. 22, 32), so not IntBool
 	Liveurl               string          `json:"liveurl"`
 	SchedulingNameHome    *int64          `json:"scheduling_name_home"`
 	SchedulingNameVisitor *int64          `json:"scheduling_name_visitor"`

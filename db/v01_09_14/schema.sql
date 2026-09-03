@@ -191,7 +191,7 @@ CREATE TABLE games (
     defenses_total integer, -- smallint(5)
     homedefenses integer, -- smallint(5)
     visitordefenses integer, -- smallint(5)
-    islive integer DEFAULT 0, -- tinyint(1)
+    islive integer DEFAULT 0, -- tinyint(1); seen with values beyond 0/1 (e.g. 22, 32)
     liveurl text -- varchar(255)
 );
 
