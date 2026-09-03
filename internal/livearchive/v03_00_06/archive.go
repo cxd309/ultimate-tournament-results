@@ -12,7 +12,9 @@ import (
 // Archive fetches one tournament from a live 3.0.6 deployment and writes it
 // into a fresh sqlite archive
 // see livearchive.Run for the write-once/slug/dbPath rules
-func Archive(ctx context.Context, host, basePath, slug, dbPath string) (livearchive.Summary, error) {
+// opts is accepted for signature parity with v01_09_14's Archive but unused,
+// no known 3.0.6 deployment needs it
+func Archive(ctx context.Context, host, basePath, slug, dbPath string, _ livearchive.ArchiveOptions) (livearchive.Summary, error) {
 	return livearchive.Run(ctx, livearchive.Deps[*liveclient.Snapshot]{
 		SchemaPath: "db/v03_00_06/schema.sql",
 		Gather: func(ctx context.Context, host, basePath string) (*liveclient.Snapshot, error) {

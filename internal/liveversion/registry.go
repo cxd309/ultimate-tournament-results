@@ -21,7 +21,7 @@ import (
 // (e.g. "v01_09_14")
 type Version struct {
 	Key     string
-	Archive func(ctx context.Context, host, basePath, slug, dbPath string) (livearchive.Summary, error)
+	Archive func(ctx context.Context, host, basePath, slug, dbPath string, opts livearchive.ArchiveOptions) (livearchive.Summary, error)
 	Publish func(ctx context.Context, dbPath, outDir string) error
 }
 

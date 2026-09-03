@@ -12,11 +12,15 @@ import (
 // Archive fetches one tournament from a live 1.9.14-1.9.17 deployment and writes it
 // into a fresh sqlite archive
 // see livearchive.Run for the write-once/slug/dbPath rules
-func Archive(ctx context.Context, host, basePath, slug, dbPath string) (livearchive.Summary, error) {
+// opts covers the known-unsupported deployments, see liveclient.Client
+func Archive(ctx context.Context, host, basePath, slug, dbPath string, opts livearchive.ArchiveOptions) (livearchive.Summary, error) {
 	return livearchive.Run(ctx, livearchive.Deps[*liveclient.Snapshot]{
 		SchemaPath: "db/v01_09_14/schema.sql",
 		Gather: func(ctx context.Context, host, basePath string) (*liveclient.Snapshot, error) {
-			return liveclient.NewClient(host, basePath).Gather(ctx)
+			c := liveclient.NewClient(host, basePath)
+			c.SeasonIDOverride = opts.SeasonID
+			c.Unprefixed = opts.Unprefixed
+			return c.Gather(ctx)
 		},
 		Summarize: func(snap *liveclient.Snapshot) livearchive.Summary {
 			return livearchive.Summary{

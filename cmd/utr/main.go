@@ -12,6 +12,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/cxd309/ultimate-tournament-results/internal/livearchive"
 	"github.com/cxd309/ultimate-tournament-results/internal/liveversion"
 )
 
@@ -30,12 +31,16 @@ func run() error {
 	slug := flag.String("slug", "", "archive filename slug (default: the season id reported by the heartbeat, lowercased)")
 	dbPath := flag.String("db", "", "sqlite archive path: written by archive (default data/<slug>.db; must not exist), read by publish (must exist)")
 	outDir := flag.String("out", "docs/archive/", "directory to render published JSON into")
+	seasonID := flag.String("season-id", "", "override the season id instead of discovering it from the heartbeat (legacy deployments only)")
+	unprefixed := flag.Bool("unprefixed", false, "static JSON filenames carry no season-id prefix (legacy deployments only)")
 	flag.Parse()
 
 	v, ok := liveversion.Get(*versionKey)
 	if !ok {
 		return fmt.Errorf("-version is required, one of: %s", strings.Join(liveversion.Keys(), ", "))
 	}
+
+	opts := livearchive.ArchiveOptions{SeasonID: *seasonID, Unprefixed: *unprefixed}
 
 	ctx := context.Background()
 
@@ -44,7 +49,7 @@ func run() error {
 		if *host == "" {
 			return fmt.Errorf("-host is required for -mode archive")
 		}
-		if _, err := v.Archive(ctx, *host, *basePath, *slug, *dbPath); err != nil {
+		if _, err := v.Archive(ctx, *host, *basePath, *slug, *dbPath, opts); err != nil {
 			return fmt.Errorf("archive: %w", err)
 		}
 		return nil
@@ -62,7 +67,7 @@ func run() error {
 		if *host == "" {
 			return fmt.Errorf("-host is required for -mode all")
 		}
-		summary, err := v.Archive(ctx, *host, *basePath, *slug, *dbPath)
+		summary, err := v.Archive(ctx, *host, *basePath, *slug, *dbPath, opts)
 		if err != nil {
 			return fmt.Errorf("archive: %w", err)
 		}

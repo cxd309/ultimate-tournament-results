@@ -17,6 +17,16 @@ import (
 	"strings"
 )
 
+// ArchiveOptions carries per-run overrides for deployments that don't follow a
+// version's normal conventions
+// every field's zero value means "behave normally"
+// currently only meaningful to v01_09_14's Client, other versions accept and
+// ignore it
+type ArchiveOptions struct {
+	SeasonID   string // override instead of discovering it from the heartbeat
+	Unprefixed bool   // static filenames carry no season-id prefix
+}
+
 // Summary is what's reported back to the caller (and printed) once Archive finishes
 // first from the freshly-gathered snapshot
 // then overwritten with the values read back from the committed database
