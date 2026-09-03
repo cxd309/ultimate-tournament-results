@@ -25,3 +25,19 @@ func (s *Store) InsertGamePool(ctx context.Context, gp GamePool) error {
 		Timetable: gp.Timetable.Int64(),
 	})
 }
+
+func (s *Store) ListGamePools(ctx context.Context) ([]GamePool, error) {
+	rows, err := s.q.ListGamePools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gamePools := make([]GamePool, len(rows))
+	for i, row := range rows {
+		gamePools[i] = GamePool{
+			GameID:    row.GameID,
+			PoolID:    row.PoolID,
+			Timetable: convert.IntBoolFromInt64(row.Timetable),
+		}
+	}
+	return gamePools, nil
+}

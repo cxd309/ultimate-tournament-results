@@ -29,7 +29,7 @@ func run() error {
 	basePath := flag.String("base-path", "/live/data/", "static cache base path, e.g. /live/data/")
 	slug := flag.String("slug", "", "archive filename slug (default: the season id reported by the heartbeat, lowercased)")
 	dbPath := flag.String("db", "", "sqlite archive path: written by archive (default data/<slug>.db; must not exist), read by publish (must exist)")
-	outDir := flag.String("out", "docs/", "directory to render published JSON into")
+	outDir := flag.String("out", "docs/archive/", "directory to render published JSON into")
 	flag.Parse()
 
 	v, ok := liveversion.Get(*versionKey)

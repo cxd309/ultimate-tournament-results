@@ -31,3 +31,22 @@ func (s *Store) InsertPlayer(ctx context.Context, p Player) error {
 		GamesPlayed: convert.NullInt64(p.GamesPlayed),
 	})
 }
+
+func (s *Store) ListPlayers(ctx context.Context) ([]Player, error) {
+	rows, err := s.q.ListPlayers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	players := make([]Player, len(rows))
+	for i, row := range rows {
+		players[i] = Player{
+			PlayerID:    row.PlayerID,
+			FirstName:   convert.String(row.Firstname),
+			LastName:    convert.String(row.Lastname),
+			Team:        row.Team.Int64,
+			Num:         convert.Int64(row.Num),
+			GamesPlayed: convert.Int64(row.GamesPlayed),
+		}
+	}
+	return players, nil
+}

@@ -26,6 +26,14 @@ func (b *IntBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalJSON encodes as the Live! APIs int representation of a bool (0 or 1)
+func (b IntBool) MarshalJSON() ([]byte, error) {
+	if b {
+		return []byte("1"), nil
+	}
+	return []byte("0"), nil
+}
+
 // Int64 converts to the int64 (0 or 1) a NOT NULL IntBool-derived column stores it as.
 func (b IntBool) Int64() int64 {
 	if b {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
 	liveclient "github.com/cxd309/ultimate-tournament-results/internal/liveclient/v03_00_06"
-	"github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v03_00_06"
+	livedatamodel "github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v03_00_06"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v03_00_06"
 )
 
@@ -41,6 +41,9 @@ func Import(ctx context.Context, s *store.Store, host, basePath string, snap *li
 	if err := importPoolPlacements(ctx, s, snap.Reference); err != nil {
 		return fmt.Errorf("import pool placements: %w", err)
 	}
+	if err := importSchedulingNames(ctx, s, snap.GameDetailByID, snap.GamesListByGameID); err != nil {
+		return fmt.Errorf("import scheduling names: %w", err)
+	}
 	if err := importGames(ctx, s, snap.GameDetailByID); err != nil {
 		return fmt.Errorf("import games: %w", err)
 	}
@@ -72,16 +75,29 @@ func Import(ctx context.Context, s *store.Store, host, basePath string, snap *li
 // heartbeat's config.TOURNAMENT_NAME "may be an empty string even on a live event."
 func importTournament(ctx context.Context, s *store.Store, host, basePath string, hb *livedatamodel.HeartbeatResponse, ref *livedatamodel.ReferenceResponse) error {
 	return s.InsertTournament(ctx, store.Tournament{
-		SeasonID:   hb.Config.LiveSeasonID,
-		Name:       ref.Season.Name,
-		StartTime:  ref.Season.StartTime,
-		EndTime:    ref.Season.EndTime,
-		Timezone:   ref.Season.Timezone,
-		Spiritmode: ref.Season.SpiritMode,
-		Host:       host,
-		BasePath:   basePath,
-		AppVersion: hb.AppVersion,
-		ArchivedAt: time.Now().UTC().Format(time.RFC3339),
+		SeasonID:                       hb.Config.LiveSeasonID,
+		Name:                           ref.Season.Name,
+		StartTime:                      ref.Season.StartTime,
+		EndTime:                        ref.Season.EndTime,
+		Iscurrent:                      ref.Season.Iscurrent,
+		Type:                           ref.Season.Type,
+		Isinternational:                ref.Season.Isinternational,
+		Isnationalteams:                ref.Season.Isnationalteams,
+		Showspiritpointsonlyoncomplete: ref.Season.Showspiritpointsonlyoncomplete,
+		Lockteamspiritonsubmit:         ref.Season.Lockteamspiritonsubmit,
+		UseSeasonPoints:                ref.Season.UseSeasonPoints,
+		HideTimeOnScoresheet:           ref.Season.HideTimeOnScoresheet,
+		Hometeammode:                   ref.Season.Hometeammode,
+		EventReadonly:                  ref.Season.EventReadonly,
+		MaintenanceMode:                ref.Season.MaintenanceMode,
+		PublicEvent:                    ref.Season.PublicEvent,
+		ApiPublic:                      ref.Season.ApiPublic,
+		Timezone:                       ref.Season.Timezone,
+		Spiritmode:                     ref.Season.SpiritMode,
+		Host:                           host,
+		BasePath:                       basePath,
+		AppVersion:                     hb.AppVersion,
+		ArchivedAt:                     time.Now().UTC().Format(time.RFC3339),
 	})
 }
 
@@ -132,7 +148,7 @@ func importCountries(ctx context.Context, s *store.Store, ref *livedatamodel.Ref
 func importLocations(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse) error {
 	seen := make(map[int64]bool, len(ref.Reservations))
 	for _, res := range ref.Reservations {
-		locationID := zeroToNil(res.Location)
+		locationID := convert.NilIfNotPositive(res.Location)
 		if locationID == nil || seen[*locationID] {
 			continue
 		}
@@ -156,7 +172,7 @@ func importReservations(ctx context.Context, s *store.Store, ref *livedatamodel.
 	for _, res := range ref.Reservations {
 		if err := s.InsertReservation(ctx, store.Reservation{
 			ID:               res.ID,
-			Location:         zeroToNil(res.Location),
+			Location:         convert.NilIfNotPositive(res.Location),
 			FieldName:        res.FieldName,
 			ReservationGroup: res.ReservationGroup,
 		}); err != nil {
@@ -167,8 +183,8 @@ func importReservations(ctx context.Context, s *store.Store, ref *livedatamodel.
 }
 
 // poolInfoByPoolID indexes every game's poolinfo by pool_id, for importPools to pull
-// drawsallowed/playoff_template from -- the reference endpoint's own Pool objects don't
-// carry those two fields. A pool with no games in it never appears here.
+// the pool's rule set from; the reference endpoint's own Pool objects don't include it
+// A pool with no games in it never appears here.
 func poolInfoByPoolID(detailByGameID map[int64]*livedatamodel.GameDetailResponse) map[int64]livedatamodel.PoolInfo {
 	byPoolID := make(map[int64]livedatamodel.PoolInfo, len(detailByGameID))
 	for _, detail := range detailByGameID {
@@ -182,35 +198,47 @@ func poolInfoByPoolID(detailByGameID map[int64]*livedatamodel.GameDetailResponse
 //
 // sourced from:
 // reference endpoint pools[]
-// game detail endpoint poolinfo (drawsallowed/playoff_template only, via poolInfoByID)
+// game detail endpoint poolinfo, via poolInfoByID: pool's ruleset
 func importPools(ctx context.Context, s *store.Store, ref *livedatamodel.ReferenceResponse, poolInfoByID map[int64]livedatamodel.PoolInfo) error {
 	for _, pool := range ref.Pools {
 		seriesID := pool.SeriesID
-		info, hasInfo := poolInfoByID[pool.PoolID]
-
-		var drawsallowed *int64
-		var playoffTemplate string
-		if hasInfo {
-			d := info.Drawsallowed.Int64()
-			drawsallowed = &d
-			if info.PlayoffTemplate != nil {
-				playoffTemplate = *info.PlayoffTemplate
-			}
+		p := store.Pool{
+			PoolID:         pool.PoolID,
+			Name:           pool.PoolName,
+			Ordering:       pool.Ordering,
+			Visible:        pool.Visible,
+			Continuingpool: pool.Continuing,
+			Placementpool:  pool.Placementpool,
+			Played:         pool.Played,
+			Series:         &seriesID,
+			Type:           pool.Type,
+			Color:          string(pool.Color),
+			Timeslot:       pool.Timeslot,
+			Isfollower:     pool.Isfollower,
 		}
-
-		if err := s.InsertPool(ctx, store.Pool{
-			PoolID:          pool.PoolID,
-			Name:            pool.PoolName,
-			Ordering:        pool.Ordering,
-			Visible:         pool.Visible,
-			Continuingpool:  pool.Continuing,
-			Placementpool:   pool.Placementpool,
-			Played:          pool.Played,
-			Series:          &seriesID,
-			Type:            pool.Type,
-			Drawsallowed:    drawsallowed,
-			PlayoffTemplate: playoffTemplate,
-		}); err != nil {
+		if info, hasInfo := poolInfoByID[pool.PoolID]; hasInfo {
+			drawsallowed := info.Drawsallowed.Int64()
+			p.Drawsallowed = &drawsallowed
+			p.PlayoffTemplate = convert.StringOrEmpty(info.PlayoffTemplate)
+			p.Teams = info.Teams
+			p.Mvgames = info.Mvgames
+			p.Timeoutlen = info.Timeoutlen
+			p.Halftime = info.Halftime
+			p.Winningscore = info.Winningscore
+			p.Timecap = info.Timecap
+			p.Scorecap = info.Scorecap
+			p.Addscore = info.Addscore
+			p.Halftimescore = info.Halftimescore
+			p.Timeouts = info.Timeouts
+			p.Timeoutsper = info.Timeoutsper
+			p.Timeoutsovertime = info.Timeoutsovertime
+			p.Timeoutstimecap = convert.StringFromOptionalInt64(info.Timeoutstimecap)
+			p.Betweenpointslen = info.Betweenpointslen
+			p.Forfeitscore = info.Forfeitscore
+			p.Forfeitagainst = info.Forfeitagainst
+			p.Follower = info.Follower
+		}
+		if err := s.InsertPool(ctx, p); err != nil {
 			return fmt.Errorf("insert pool %d: %w", pool.PoolID, err)
 		}
 	}
@@ -231,8 +259,12 @@ func importTeams(ctx context.Context, s *store.Store, ref *livedatamodel.Referen
 			pool = &detail.Pool
 		}
 		var valid convert.IntBool
+		var clubName string
 		if detail != nil {
 			valid = detail.Valid
+			if detail.Clubname != nil {
+				clubName = *detail.Clubname
+			}
 		}
 
 		series := team.Series
@@ -252,7 +284,8 @@ func importTeams(ctx context.Context, s *store.Store, ref *livedatamodel.Referen
 			Abbreviation:            team.Abbreviation,
 			FinalStanding:           &finalStanding,
 			FinalStandingCalculated: &finalStandingCalculated,
-			ClubName:                team.Club,
+			Club:                    team.Club,
+			ClubName:                clubName,
 		}); err != nil {
 			return fmt.Errorf("insert team %d: %w", team.TeamID, err)
 		}
@@ -300,6 +333,49 @@ func importPoolPlacements(ctx context.Context, s *store.Store, ref *livedatamode
 			Placement: placement.Placement,
 		}); err != nil {
 			return fmt.Errorf("insert pool placement %d/%d: %w", placement.PoolID, placement.TeamID, err)
+		}
+	}
+	return nil
+}
+
+// importSchedulingNames writes the scheduling_names table
+// Must be run before importGames, which references it
+//
+// sourced from:
+// game detail endpoint game_result.name/gamename (a game's own scheduling slot) and
+// game_info.phometeamname/pvisitorteamname (the two bracket-slot placeholders)
+// games endpoint home_scheduling_frompool/visitor_scheduling_frompool (new in
+// UltiOrganizer 4, only exposed by the games list, not game detail)
+func importSchedulingNames(ctx context.Context, s *store.Store, detailByGameID map[int64]*livedatamodel.GameDetailResponse, gamesListByGameID map[int64]livedatamodel.GameListEntry) error {
+	seen := make(map[int64]bool)
+	insert := func(id, frompool *int64, name string) error {
+		if id == nil || name == "" || seen[*id] {
+			return nil
+		}
+		if err := s.InsertSchedulingName(ctx, store.SchedulingName{SchedulingID: *id, Name: name, Frompool: frompool}); err != nil {
+			return fmt.Errorf("insert scheduling name %d: %w", *id, err)
+		}
+		seen[*id] = true
+		return nil
+	}
+
+	for gameID, detail := range detailByGameID {
+		gr := detail.GameResult
+		nameID, err := parseSchedulingNameID(gr.Name)
+		if err != nil {
+			return fmt.Errorf("game %d: %w", gr.GameID, err)
+		}
+		if err := insert(nameID, nil, gr.Gamename); err != nil {
+			return err
+		}
+		list := gamesListByGameID[gameID]
+		if detail.GameInfo != nil {
+			if err := insert(gr.SchedulingNameHome, list.HomeSchedulingFrompool, convert.StringOrEmpty(detail.GameInfo.Phometeamname)); err != nil {
+				return err
+			}
+			if err := insert(gr.SchedulingNameVisitor, list.VisitorSchedulingFrompool, convert.StringOrEmpty(detail.GameInfo.Pvisitorteamname)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -390,8 +466,8 @@ func importGoals(ctx context.Context, s *store.Store, detailByGameID map[int64]*
 			if err := s.InsertGoal(ctx, store.Goal{
 				GameID:       gameID,
 				Num:          g.Num,
-				Assist:       zeroToNil(g.Assist),
-				Scorer:       zeroToNil(g.Scorer),
+				Assist:       convert.NilIfNotPositive(g.Assist),
+				Scorer:       convert.NilIfNotPositive(g.Scorer),
 				Time:         g.Time,
 				Homescore:    &g.Homescore,
 				Visitorscore: &g.Visitorscore,
@@ -539,14 +615,4 @@ func parseSchedulingNameID(s *string) (*int64, error) {
 		return nil, fmt.Errorf("parse scheduling name id %q: %w", *s, err)
 	}
 	return &id, nil
-}
-
-// zeroToNil normalizes an API "not recorded" sentinel to nil: goal scorer/assist and
-// reservation.location all use non-positive values (0, or -1 for goals) to mean "unset,"
-// none of which are ever a real id and all of which would violate an FK.
-func zeroToNil(id *int64) *int64 {
-	if id == nil || *id <= 0 {
-		return nil
-	}
-	return id
 }

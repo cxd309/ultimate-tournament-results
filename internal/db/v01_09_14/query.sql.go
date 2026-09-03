@@ -219,22 +219,44 @@ func (q *Queries) InsertPlayer(ctx context.Context, arg InsertPlayerParams) erro
 }
 
 const insertPool = `-- name: InsertPool :exec
-INSERT INTO pools (pool_id, name, ordering, visible, continuingpool, placementpool, played, series, type)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+INSERT INTO pools (pool_id, name, ordering, visible, continuingpool, placementpool, played, series, type, color, timeslot, teams, mvgames, timeoutlen, halftime, winningscore, timecap, scorecap, addscore, halftimescore, timeouts, timeoutsper, timeoutsovertime, timeoutstimecap, betweenpointslen, forfeitscore, forfeitagainst, follower)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)
 `
 
 type InsertPoolParams struct {
-	PoolID         int64          `json:"pool_id"`
-	Name           sql.NullString `json:"name"`
-	Ordering       sql.NullString `json:"ordering"`
-	Visible        int64          `json:"visible"`
-	Continuingpool int64          `json:"continuingpool"`
-	Placementpool  sql.NullInt64  `json:"placementpool"`
-	Played         int64          `json:"played"`
-	Series         sql.NullInt64  `json:"series"`
-	Type           int64          `json:"type"`
+	PoolID           int64          `json:"pool_id"`
+	Name             sql.NullString `json:"name"`
+	Ordering         sql.NullString `json:"ordering"`
+	Visible          int64          `json:"visible"`
+	Continuingpool   int64          `json:"continuingpool"`
+	Placementpool    sql.NullInt64  `json:"placementpool"`
+	Played           int64          `json:"played"`
+	Series           sql.NullInt64  `json:"series"`
+	Type             int64          `json:"type"`
+	Color            sql.NullString `json:"color"`
+	Timeslot         sql.NullInt64  `json:"timeslot"`
+	Teams            sql.NullInt64  `json:"teams"`
+	Mvgames          sql.NullInt64  `json:"mvgames"`
+	Timeoutlen       sql.NullInt64  `json:"timeoutlen"`
+	Halftime         sql.NullInt64  `json:"halftime"`
+	Winningscore     sql.NullInt64  `json:"winningscore"`
+	Timecap          sql.NullInt64  `json:"timecap"`
+	Scorecap         sql.NullInt64  `json:"scorecap"`
+	Addscore         sql.NullInt64  `json:"addscore"`
+	Halftimescore    sql.NullInt64  `json:"halftimescore"`
+	Timeouts         sql.NullInt64  `json:"timeouts"`
+	Timeoutsper      sql.NullString `json:"timeoutsper"`
+	Timeoutsovertime sql.NullInt64  `json:"timeoutsovertime"`
+	Timeoutstimecap  sql.NullString `json:"timeoutstimecap"`
+	Betweenpointslen sql.NullInt64  `json:"betweenpointslen"`
+	Forfeitscore     sql.NullInt64  `json:"forfeitscore"`
+	Forfeitagainst   sql.NullInt64  `json:"forfeitagainst"`
+	Follower         sql.NullInt64  `json:"follower"`
 }
 
+// teams to follower are only known once a game in this pool has been fetched
+// (they come from that game detail's poolinfo, not the reference endpoint's own pools[])
+// absent for a pool with no games, e.g. an unused placeholder bracket pool
 func (q *Queries) InsertPool(ctx context.Context, arg InsertPoolParams) error {
 	_, err := q.db.ExecContext(ctx, insertPool,
 		arg.PoolID,
@@ -246,6 +268,25 @@ func (q *Queries) InsertPool(ctx context.Context, arg InsertPoolParams) error {
 		arg.Played,
 		arg.Series,
 		arg.Type,
+		arg.Color,
+		arg.Timeslot,
+		arg.Teams,
+		arg.Mvgames,
+		arg.Timeoutlen,
+		arg.Halftime,
+		arg.Winningscore,
+		arg.Timecap,
+		arg.Scorecap,
+		arg.Addscore,
+		arg.Halftimescore,
+		arg.Timeouts,
+		arg.Timeoutsper,
+		arg.Timeoutsovertime,
+		arg.Timeoutstimecap,
+		arg.Betweenpointslen,
+		arg.Forfeitscore,
+		arg.Forfeitagainst,
+		arg.Follower,
 	)
 	return err
 }
@@ -269,6 +310,21 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		arg.Fieldname,
 		arg.Reservationgroup,
 	)
+	return err
+}
+
+const insertSchedulingName = `-- name: InsertSchedulingName :exec
+INSERT INTO scheduling_names (scheduling_id, name)
+    VALUES (?1, ?2)
+`
+
+type InsertSchedulingNameParams struct {
+	SchedulingID int64  `json:"scheduling_id"`
+	Name         string `json:"name"`
+}
+
+func (q *Queries) InsertSchedulingName(ctx context.Context, arg InsertSchedulingNameParams) error {
+	_, err := q.db.ExecContext(ctx, insertSchedulingName, arg.SchedulingID, arg.Name)
 	return err
 }
 
@@ -339,20 +395,24 @@ func (q *Queries) InsertTeam(ctx context.Context, arg InsertTeamParams) error {
 }
 
 const insertTournament = `-- name: InsertTournament :exec
-INSERT INTO tournament (season_id, name, starttime, endtime, timezone, host, base_path, app_version, archived_at)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+INSERT INTO tournament (season_id, name, starttime, endtime, iscurrent, type, isinternational, isnationalteams, timezone, host, base_path, app_version, archived_at)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
 `
 
 type InsertTournamentParams struct {
-	SeasonID   string         `json:"season_id"`
-	Name       sql.NullString `json:"name"`
-	Starttime  sql.NullString `json:"starttime"`
-	Endtime    sql.NullString `json:"endtime"`
-	Timezone   sql.NullString `json:"timezone"`
-	Host       string         `json:"host"`
-	BasePath   string         `json:"base_path"`
-	AppVersion sql.NullString `json:"app_version"`
-	ArchivedAt string         `json:"archived_at"`
+	SeasonID        string         `json:"season_id"`
+	Name            sql.NullString `json:"name"`
+	Starttime       sql.NullString `json:"starttime"`
+	Endtime         sql.NullString `json:"endtime"`
+	Iscurrent       int64          `json:"iscurrent"`
+	Type            sql.NullString `json:"type"`
+	Isinternational sql.NullInt64  `json:"isinternational"`
+	Isnationalteams sql.NullInt64  `json:"isnationalteams"`
+	Timezone        sql.NullString `json:"timezone"`
+	Host            string         `json:"host"`
+	BasePath        string         `json:"base_path"`
+	AppVersion      sql.NullString `json:"app_version"`
+	ArchivedAt      string         `json:"archived_at"`
 }
 
 func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentParams) error {
@@ -361,6 +421,10 @@ func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentPara
 		arg.Name,
 		arg.Starttime,
 		arg.Endtime,
+		arg.Iscurrent,
+		arg.Type,
+		arg.Isinternational,
+		arg.Isnationalteams,
 		arg.Timezone,
 		arg.Host,
 		arg.BasePath,
@@ -368,4 +432,488 @@ func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentPara
 		arg.ArchivedAt,
 	)
 	return err
+}
+
+const listCountries = `-- name: ListCountries :many
+SELECT
+    country_id, name, abbreviation, flag_file, valid
+FROM
+    countries
+ORDER BY
+    country_id
+`
+
+func (q *Queries) ListCountries(ctx context.Context) ([]Country, error) {
+	rows, err := q.db.QueryContext(ctx, listCountries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Country
+	for rows.Next() {
+		var i Country
+		if err := rows.Scan(
+			&i.CountryID,
+			&i.Name,
+			&i.Abbreviation,
+			&i.FlagFile,
+			&i.Valid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDivisions = `-- name: ListDivisions :many
+SELECT
+    series_id, name, ordering, season, valid, type, color, pool_template
+FROM
+    divisions
+ORDER BY
+    series_id
+`
+
+func (q *Queries) ListDivisions(ctx context.Context) ([]Division, error) {
+	rows, err := q.db.QueryContext(ctx, listDivisions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Division
+	for rows.Next() {
+		var i Division
+		if err := rows.Scan(
+			&i.SeriesID,
+			&i.Name,
+			&i.Ordering,
+			&i.Season,
+			&i.Valid,
+			&i.Type,
+			&i.Color,
+			&i.PoolTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGames = `-- name: ListGames :many
+SELECT
+    game_id, hometeam, visitorteam, homescore, visitorscore, reservation, time, pool, valid, halftime, official, respteam, resppers, homesotg, visitorsotg, isongoing, scheduling_name_home, scheduling_name_visitor, name, timeslot, defenses_total, homedefenses, visitordefenses, islive, liveurl
+FROM
+    games
+ORDER BY
+    game_id
+`
+
+func (q *Queries) ListGames(ctx context.Context) ([]Game, error) {
+	rows, err := q.db.QueryContext(ctx, listGames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Game
+	for rows.Next() {
+		var i Game
+		if err := rows.Scan(
+			&i.GameID,
+			&i.Hometeam,
+			&i.Visitorteam,
+			&i.Homescore,
+			&i.Visitorscore,
+			&i.Reservation,
+			&i.Time,
+			&i.Pool,
+			&i.Valid,
+			&i.Halftime,
+			&i.Official,
+			&i.Respteam,
+			&i.Resppers,
+			&i.Homesotg,
+			&i.Visitorsotg,
+			&i.Isongoing,
+			&i.SchedulingNameHome,
+			&i.SchedulingNameVisitor,
+			&i.Name,
+			&i.Timeslot,
+			&i.DefensesTotal,
+			&i.Homedefenses,
+			&i.Visitordefenses,
+			&i.Islive,
+			&i.Liveurl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGoals = `-- name: ListGoals :many
+SELECT
+    game_id, num, assist, scorer, time, homescore, visitorscore, ishomegoal, iscallahan
+FROM
+    goals
+ORDER BY
+    game_id,
+    num
+`
+
+func (q *Queries) ListGoals(ctx context.Context) ([]Goal, error) {
+	rows, err := q.db.QueryContext(ctx, listGoals)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Goal
+	for rows.Next() {
+		var i Goal
+		if err := rows.Scan(
+			&i.GameID,
+			&i.Num,
+			&i.Assist,
+			&i.Scorer,
+			&i.Time,
+			&i.Homescore,
+			&i.Visitorscore,
+			&i.Ishomegoal,
+			&i.Iscallahan,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLocations = `-- name: ListLocations :many
+SELECT
+    id, name, fields, indoor, address, lat, lng
+FROM
+    locations
+ORDER BY
+    id
+`
+
+func (q *Queries) ListLocations(ctx context.Context) ([]Location, error) {
+	rows, err := q.db.QueryContext(ctx, listLocations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Location
+	for rows.Next() {
+		var i Location
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Fields,
+			&i.Indoor,
+			&i.Address,
+			&i.Lat,
+			&i.Lng,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlayers = `-- name: ListPlayers :many
+SELECT
+    player_id, firstname, lastname, team, num, accreditation_id, accredited, profile_id, games_played
+FROM
+    players
+ORDER BY
+    player_id
+`
+
+func (q *Queries) ListPlayers(ctx context.Context) ([]Player, error) {
+	rows, err := q.db.QueryContext(ctx, listPlayers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Player
+	for rows.Next() {
+		var i Player
+		if err := rows.Scan(
+			&i.PlayerID,
+			&i.Firstname,
+			&i.Lastname,
+			&i.Team,
+			&i.Num,
+			&i.AccreditationID,
+			&i.Accredited,
+			&i.ProfileID,
+			&i.GamesPlayed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPools = `-- name: ListPools :many
+SELECT
+    pool_id, name, ordering, visible, continuingpool, placementpool, teams, mvgames, timeoutlen, halftime, winningscore, timecap, scorecap, played, addscore, halftimescore, timeouts, timeoutsper, timeoutsovertime, timeoutstimecap, betweenpointslen, series, type, timeslot, color, forfeitscore, forfeitagainst, follower
+FROM
+    pools
+ORDER BY
+    pool_id
+`
+
+func (q *Queries) ListPools(ctx context.Context) ([]Pool, error) {
+	rows, err := q.db.QueryContext(ctx, listPools)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Pool
+	for rows.Next() {
+		var i Pool
+		if err := rows.Scan(
+			&i.PoolID,
+			&i.Name,
+			&i.Ordering,
+			&i.Visible,
+			&i.Continuingpool,
+			&i.Placementpool,
+			&i.Teams,
+			&i.Mvgames,
+			&i.Timeoutlen,
+			&i.Halftime,
+			&i.Winningscore,
+			&i.Timecap,
+			&i.Scorecap,
+			&i.Played,
+			&i.Addscore,
+			&i.Halftimescore,
+			&i.Timeouts,
+			&i.Timeoutsper,
+			&i.Timeoutsovertime,
+			&i.Timeoutstimecap,
+			&i.Betweenpointslen,
+			&i.Series,
+			&i.Type,
+			&i.Timeslot,
+			&i.Color,
+			&i.Forfeitscore,
+			&i.Forfeitagainst,
+			&i.Follower,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReservations = `-- name: ListReservations :many
+SELECT
+    id, location, fieldname, reservationgroup, starttime, endtime, season, timeslots, date
+FROM
+    reservations
+ORDER BY
+    id
+`
+
+func (q *Queries) ListReservations(ctx context.Context) ([]Reservation, error) {
+	rows, err := q.db.QueryContext(ctx, listReservations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Reservation
+	for rows.Next() {
+		var i Reservation
+		if err := rows.Scan(
+			&i.ID,
+			&i.Location,
+			&i.Fieldname,
+			&i.Reservationgroup,
+			&i.Starttime,
+			&i.Endtime,
+			&i.Season,
+			&i.Timeslots,
+			&i.Date,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSchedulingNames = `-- name: ListSchedulingNames :many
+SELECT
+    scheduling_id, name
+FROM
+    scheduling_names
+ORDER BY
+    scheduling_id
+`
+
+func (q *Queries) ListSchedulingNames(ctx context.Context) ([]SchedulingName, error) {
+	rows, err := q.db.QueryContext(ctx, listSchedulingNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SchedulingName
+	for rows.Next() {
+		var i SchedulingName
+		if err := rows.Scan(&i.SchedulingID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpiritScores = `-- name: ListSpiritScores :many
+SELECT
+    game_id, team_id, cat1, cat2, cat3, cat4, cat5, comments
+FROM
+    spirit_scores
+ORDER BY
+    game_id,
+    team_id
+`
+
+func (q *Queries) ListSpiritScores(ctx context.Context) ([]SpiritScore, error) {
+	rows, err := q.db.QueryContext(ctx, listSpiritScores)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SpiritScore
+	for rows.Next() {
+		var i SpiritScore
+		if err := rows.Scan(
+			&i.GameID,
+			&i.TeamID,
+			&i.Cat1,
+			&i.Cat2,
+			&i.Cat3,
+			&i.Cat4,
+			&i.Cat5,
+			&i.Comments,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTeams = `-- name: ListTeams :many
+SELECT
+    team_id, name, pool, rank, activerank, valid, series, country, abbreviation, final_standing, final_standing_calculated, club_name
+FROM
+    teams
+ORDER BY
+    team_id
+`
+
+func (q *Queries) ListTeams(ctx context.Context) ([]Team, error) {
+	rows, err := q.db.QueryContext(ctx, listTeams)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Team
+	for rows.Next() {
+		var i Team
+		if err := rows.Scan(
+			&i.TeamID,
+			&i.Name,
+			&i.Pool,
+			&i.Rank,
+			&i.Activerank,
+			&i.Valid,
+			&i.Series,
+			&i.Country,
+			&i.Abbreviation,
+			&i.FinalStanding,
+			&i.FinalStandingCalculated,
+			&i.ClubName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

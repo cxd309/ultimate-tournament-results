@@ -87,3 +87,13 @@ func (c *Client) GetSeasonJSON(ctx context.Context, suffix string, out any) erro
 	}
 	return c.GetJSON(ctx, c.SeasonID+suffix, out)
 }
+
+// PrintProgress prints "  done/total" every every'th item, and always for the last one
+//
+// each vXX Gather fetches one team/game detail per HTTP request, throttled,
+// so a big tournament genuinely takes a while with nothing else to show for it
+func PrintProgress(done, total, every int) {
+	if done%every == 0 || done == total {
+		fmt.Printf("  %d/%d\n", done, total)
+	}
+}

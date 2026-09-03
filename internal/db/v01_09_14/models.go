@@ -132,6 +132,11 @@ type Reservation struct {
 	Date             sql.NullString `json:"date"`
 }
 
+type SchedulingName struct {
+	SchedulingID int64  `json:"scheduling_id"`
+	Name         string `json:"name"`
+}
+
 type SpiritScore struct {
 	GameID   int64          `json:"game_id"`
 	TeamID   int64          `json:"team_id"`

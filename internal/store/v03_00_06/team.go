@@ -9,6 +9,9 @@ import (
 
 // Team is the plain-Go-typed form of a single row in the teams table
 // Valid is IntBool, sourced from team-detail when known, false (not-yet-known) otherwise
+//
+// Club is the raw FK id (reference endpoint)
+// ClubName the resolved text (team-detail endpoint only)
 type Team struct {
 	TeamID                  int64
 	Name                    string
@@ -20,7 +23,8 @@ type Team struct {
 	Abbreviation            string
 	FinalStanding           *int64
 	FinalStandingCalculated *int64
-	ClubName                string // bare name only; there's no club id to join on, see schema
+	Club                    *int64
+	ClubName                string
 }
 
 func (s *Store) InsertTeam(ctx context.Context, t Team) error {
@@ -35,6 +39,32 @@ func (s *Store) InsertTeam(ctx context.Context, t Team) error {
 		Abbreviation:            convert.NullString(t.Abbreviation),
 		FinalStanding:           convert.NullInt64(t.FinalStanding),
 		FinalStandingCalculated: convert.NullInt64(t.FinalStandingCalculated),
-		ClubName:                convert.NullString(t.ClubName),
+		Club:                    convert.NullInt64(t.Club),
+		Clubname:                convert.NullString(t.ClubName),
 	})
+}
+
+func (s *Store) ListTeams(ctx context.Context) ([]Team, error) {
+	rows, err := s.q.ListTeams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	teams := make([]Team, len(rows))
+	for i, row := range rows {
+		teams[i] = Team{
+			TeamID:                  row.TeamID,
+			Name:                    convert.String(row.Name),
+			Pool:                    convert.Int64(row.Pool),
+			Rank:                    convert.Int64(row.Rank),
+			Valid:                   convert.IntBoolFromInt64(row.Valid),
+			Series:                  convert.Int64(row.Series),
+			Country:                 convert.Int64(row.Country),
+			Abbreviation:            convert.String(row.Abbreviation),
+			FinalStanding:           convert.Int64(row.FinalStanding),
+			FinalStandingCalculated: convert.Int64(row.FinalStandingCalculated),
+			Club:                    convert.Int64(row.Club),
+			ClubName:                convert.String(row.Clubname),
+		}
+	}
+	return teams, nil
 }

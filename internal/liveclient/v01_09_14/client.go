@@ -1,4 +1,4 @@
-// Package liveclient fetches Live! by BULA 1.9.14-1.9.16 shaped responses from one
+// Package liveclient fetches Live! by BULA 1.9.14-1.9.17 shaped responses from one
 // deployment
 package liveclient
 
@@ -10,7 +10,7 @@ import (
 	"github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v01_09_14"
 )
 
-// Client fetches Live! by BULA 1.9.14-1.9.16 shaped responses from one deployment
+// Client fetches Live! by BULA 1.9.14-1.9.17 shaped responses from one deployment
 type Client struct {
 	liveclient.Client
 }

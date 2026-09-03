@@ -22,3 +22,19 @@ func (s *Store) InsertSpiritComment(ctx context.Context, c SpiritComment) error 
 		Comment: convert.NullString(c.Comment),
 	})
 }
+
+func (s *Store) ListSpiritComments(ctx context.Context) ([]SpiritComment, error) {
+	rows, err := s.q.ListSpiritComments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	comments := make([]SpiritComment, len(rows))
+	for i, row := range rows {
+		comments[i] = SpiritComment{
+			GameID:  row.GameID,
+			TeamID:  row.TeamID,
+			Comment: convert.String(row.Comment),
+		}
+	}
+	return comments, nil
+}

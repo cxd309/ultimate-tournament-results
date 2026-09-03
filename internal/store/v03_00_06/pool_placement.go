@@ -21,3 +21,19 @@ func (s *Store) InsertPoolPlacement(ctx context.Context, p PoolPlacement) error 
 		Placement: convert.NullInt64(p.Placement),
 	})
 }
+
+func (s *Store) ListPoolPlacements(ctx context.Context) ([]PoolPlacement, error) {
+	rows, err := s.q.ListPoolPlacements(ctx)
+	if err != nil {
+		return nil, err
+	}
+	placements := make([]PoolPlacement, len(rows))
+	for i, row := range rows {
+		placements[i] = PoolPlacement{
+			PoolID:    row.PoolID,
+			TeamID:    row.TeamID,
+			Placement: convert.Int64(row.Placement),
+		}
+	}
+	return placements, nil
+}

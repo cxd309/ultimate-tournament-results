@@ -25,3 +25,20 @@ func (s *Store) InsertSpiritScore(ctx context.Context, sc SpiritScore) error {
 		Value:      convert.NullInt64(sc.Value),
 	})
 }
+
+func (s *Store) ListSpiritScores(ctx context.Context) ([]SpiritScore, error) {
+	rows, err := s.q.ListSpiritScores(ctx)
+	if err != nil {
+		return nil, err
+	}
+	scores := make([]SpiritScore, len(rows))
+	for i, row := range rows {
+		scores[i] = SpiritScore{
+			GameID:     row.GameID,
+			TeamID:     row.TeamID,
+			CategoryID: row.CategoryID,
+			Value:      convert.Int64(row.Value),
+		}
+	}
+	return scores, nil
+}

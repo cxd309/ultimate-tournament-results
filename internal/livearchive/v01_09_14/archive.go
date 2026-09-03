@@ -9,7 +9,7 @@ import (
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
 
-// Archive fetches one tournament from a live 1.9.14-1.9.16 deployment and writes it
+// Archive fetches one tournament from a live 1.9.14-1.9.17 deployment and writes it
 // into a fresh sqlite archive
 // see livearchive.Run for the write-once/slug/dbPath rules
 func Archive(ctx context.Context, host, basePath, slug, dbPath string) (livearchive.Summary, error) {

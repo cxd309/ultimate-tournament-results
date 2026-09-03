@@ -129,6 +129,7 @@ type Pool struct {
 	Follower         sql.NullInt64  `json:"follower"`
 	Drawsallowed     sql.NullInt64  `json:"drawsallowed"`
 	PlayoffTemplate  sql.NullString `json:"playoff_template"`
+	Isfollower       int64          `json:"isfollower"`
 }
 
 type PoolPlacement struct {
@@ -147,6 +148,12 @@ type Reservation struct {
 	Season           sql.NullString `json:"season"`
 	Timeslots        sql.NullString `json:"timeslots"`
 	Date             sql.NullString `json:"date"`
+}
+
+type SchedulingName struct {
+	SchedulingID int64         `json:"scheduling_id"`
+	Name         string        `json:"name"`
+	Frompool     sql.NullInt64 `json:"frompool"`
 }
 
 type SpiritCategory struct {
@@ -185,7 +192,8 @@ type Team struct {
 	Abbreviation            sql.NullString `json:"abbreviation"`
 	FinalStanding           sql.NullInt64  `json:"final_standing"`
 	FinalStandingCalculated sql.NullInt64  `json:"final_standing_calculated"`
-	ClubName                sql.NullString `json:"club_name"`
+	Club                    sql.NullInt64  `json:"club"`
+	Clubname                sql.NullString `json:"clubname"`
 }
 
 type Tournament struct {

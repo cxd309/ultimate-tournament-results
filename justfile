@@ -19,7 +19,7 @@ fmt:
     pg_format -i $(git ls-files '*.sql')
 
 # ── DB Generate: sqlc generate db package  ───────────────────────────────────
-dbgen:
+dbgen: fmt
     sqlc generate
 
 # ── Clean: remove build output ────────────────────────────────────────────────

@@ -10,28 +10,111 @@ import (
 // Pool is the plain-Go-typed form of a single row in the pools table
 // Visible/Continuingpool/Placementpool/Played are IntBool: always known even though
 // placementpool is a nullable column, so no pointer needed.
+//
+// Teams..Follower are only known once a game in this pool has been imported -- they
+// come from that game's poolinfo, not the reference endpoint's own pools[] -- so stay
+// nil for a pool with no games, e.g. an unused placeholder bracket pool.
 type Pool struct {
-	PoolID         int64
-	Name           string
-	Ordering       string
-	Visible        convert.IntBool
-	Continuingpool convert.IntBool
-	Placementpool  convert.IntBool
-	Played         convert.IntBool
-	Series         *int64
-	Type           int64
+	PoolID           int64
+	Name             string
+	Ordering         string
+	Visible          convert.IntBool
+	Continuingpool   convert.IntBool
+	Placementpool    convert.IntBool
+	Played           convert.IntBool
+	Series           *int64
+	Type             int64
+	Color            string
+	Timeslot         *int64
+	Teams            *int64
+	Mvgames          *int64
+	Timeoutlen       *int64
+	Halftime         *int64
+	Winningscore     *int64
+	Timecap          *int64
+	Scorecap         *int64
+	Addscore         *int64
+	Halftimescore    *int64
+	Timeouts         *int64
+	Timeoutsper      string
+	Timeoutsovertime *int64
+	Timeoutstimecap  string
+	Betweenpointslen *int64
+	Forfeitscore     *int64
+	Forfeitagainst   *int64
+	Follower         *int64
 }
 
 func (s *Store) InsertPool(ctx context.Context, p Pool) error {
 	return s.q.InsertPool(ctx, dbgen.InsertPoolParams{
-		PoolID:         p.PoolID,
-		Name:           convert.NullString(p.Name),
-		Ordering:       convert.NullString(p.Ordering),
-		Visible:        p.Visible.Int64(),
-		Continuingpool: p.Continuingpool.Int64(),
-		Placementpool:  p.Placementpool.NullInt64(),
-		Played:         p.Played.Int64(),
-		Series:         convert.NullInt64(p.Series),
-		Type:           p.Type,
+		PoolID:           p.PoolID,
+		Name:             convert.NullString(p.Name),
+		Ordering:         convert.NullString(p.Ordering),
+		Visible:          p.Visible.Int64(),
+		Continuingpool:   p.Continuingpool.Int64(),
+		Placementpool:    p.Placementpool.NullInt64(),
+		Played:           p.Played.Int64(),
+		Series:           convert.NullInt64(p.Series),
+		Type:             p.Type,
+		Color:            convert.NullString(p.Color),
+		Timeslot:         convert.NullInt64(p.Timeslot),
+		Teams:            convert.NullInt64(p.Teams),
+		Mvgames:          convert.NullInt64(p.Mvgames),
+		Timeoutlen:       convert.NullInt64(p.Timeoutlen),
+		Halftime:         convert.NullInt64(p.Halftime),
+		Winningscore:     convert.NullInt64(p.Winningscore),
+		Timecap:          convert.NullInt64(p.Timecap),
+		Scorecap:         convert.NullInt64(p.Scorecap),
+		Addscore:         convert.NullInt64(p.Addscore),
+		Halftimescore:    convert.NullInt64(p.Halftimescore),
+		Timeouts:         convert.NullInt64(p.Timeouts),
+		Timeoutsper:      convert.NullString(p.Timeoutsper),
+		Timeoutsovertime: convert.NullInt64(p.Timeoutsovertime),
+		Timeoutstimecap:  convert.NullString(p.Timeoutstimecap),
+		Betweenpointslen: convert.NullInt64(p.Betweenpointslen),
+		Forfeitscore:     convert.NullInt64(p.Forfeitscore),
+		Forfeitagainst:   convert.NullInt64(p.Forfeitagainst),
+		Follower:         convert.NullInt64(p.Follower),
 	})
+}
+
+func (s *Store) ListPools(ctx context.Context) ([]Pool, error) {
+	rows, err := s.q.ListPools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pools := make([]Pool, len(rows))
+	for i, row := range rows {
+		pools[i] = Pool{
+			PoolID:           row.PoolID,
+			Name:             convert.String(row.Name),
+			Ordering:         convert.String(row.Ordering),
+			Visible:          convert.IntBoolFromInt64(row.Visible),
+			Continuingpool:   convert.IntBoolFromInt64(row.Continuingpool),
+			Placementpool:    convert.IntBoolFromInt64(row.Placementpool.Int64),
+			Played:           convert.IntBoolFromInt64(row.Played),
+			Series:           convert.Int64(row.Series),
+			Type:             row.Type,
+			Color:            convert.String(row.Color),
+			Timeslot:         convert.Int64(row.Timeslot),
+			Teams:            convert.Int64(row.Teams),
+			Mvgames:          convert.Int64(row.Mvgames),
+			Timeoutlen:       convert.Int64(row.Timeoutlen),
+			Halftime:         convert.Int64(row.Halftime),
+			Winningscore:     convert.Int64(row.Winningscore),
+			Timecap:          convert.Int64(row.Timecap),
+			Scorecap:         convert.Int64(row.Scorecap),
+			Addscore:         convert.Int64(row.Addscore),
+			Halftimescore:    convert.Int64(row.Halftimescore),
+			Timeouts:         convert.Int64(row.Timeouts),
+			Timeoutsper:      convert.String(row.Timeoutsper),
+			Timeoutsovertime: convert.Int64(row.Timeoutsovertime),
+			Timeoutstimecap:  convert.String(row.Timeoutstimecap),
+			Betweenpointslen: convert.Int64(row.Betweenpointslen),
+			Forfeitscore:     convert.Int64(row.Forfeitscore),
+			Forfeitagainst:   convert.Int64(row.Forfeitagainst),
+			Follower:         convert.Int64(row.Follower),
+		}
+	}
+	return pools, nil
 }

@@ -21,3 +21,19 @@ func (s *Store) InsertDivision(ctx context.Context, d Division) error {
 		Ordering: convert.NullString(d.Ordering),
 	})
 }
+
+func (s *Store) ListDivisions(ctx context.Context) ([]Division, error) {
+	rows, err := s.q.ListDivisions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	divisions := make([]Division, len(rows))
+	for i, row := range rows {
+		divisions[i] = Division{
+			SeriesID: row.SeriesID,
+			Name:     convert.String(row.Name),
+			Ordering: convert.String(row.Ordering),
+		}
+	}
+	return divisions, nil
+}

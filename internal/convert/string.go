@@ -15,3 +15,11 @@ func NullString(s string) sql.NullString {
 func String(n sql.NullString) string {
 	return n.String
 }
+
+// StringOrEmpty dereferences an optional string, or "" when absent
+func StringOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
