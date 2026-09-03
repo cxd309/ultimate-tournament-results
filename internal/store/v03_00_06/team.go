@@ -9,6 +9,9 @@ import (
 
 // Team is the plain-Go-typed form of a single row in the teams table
 // Valid is IntBool, sourced from team-detail when known, false (not-yet-known) otherwise
+//
+// Club is the raw FK id (reference endpoint)
+// ClubName the resolved text (team-detail endpoint only)
 type Team struct {
 	TeamID                  int64
 	Name                    string
@@ -20,7 +23,8 @@ type Team struct {
 	Abbreviation            string
 	FinalStanding           *int64
 	FinalStandingCalculated *int64
-	ClubName                string // bare name only; there's no club id to join on, see schema
+	Club                    *int64
+	ClubName                string
 }
 
 func (s *Store) InsertTeam(ctx context.Context, t Team) error {
@@ -35,6 +39,7 @@ func (s *Store) InsertTeam(ctx context.Context, t Team) error {
 		Abbreviation:            convert.NullString(t.Abbreviation),
 		FinalStanding:           convert.NullInt64(t.FinalStanding),
 		FinalStandingCalculated: convert.NullInt64(t.FinalStandingCalculated),
-		ClubName:                convert.NullString(t.ClubName),
+		Club:                    convert.NullInt64(t.Club),
+		Clubname:                convert.NullString(t.ClubName),
 	})
 }

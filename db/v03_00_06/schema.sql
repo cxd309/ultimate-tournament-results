@@ -48,6 +48,8 @@ CREATE TABLE locations (
 -- uo_season
 -- plus archive-specific metadata that isn't from UltiOrganizer at all.
 -- reg_id not included, external registration system data not relevant
+-- enrollopen/enroll_deadline/istournament/organizer/category are real columns too but
+-- the reference endpoint strips all five and no other in-scope endpoint exposes them
 CREATE TABLE tournament (
     season_id text NOT NULL, -- varchar(10)
     name text, -- varchar(50)
@@ -125,7 +127,10 @@ CREATE TABLE pools (
     forfeitagainst integer, -- int(10)
     follower integer, -- int(10)
     drawsallowed integer, -- smallint(5) DEFAULT 0
-    playoff_template text -- varchar(30)
+    playoff_template text, -- varchar(30)
+    -- isfollower: computed by the reference endpoint from `follower`, not a raw column
+    -- (`follower` itself, the target pool id, is only exposed via poolinfo, see above)
+    isfollower integer NOT NULL DEFAULT 0 -- tinyint(1)
 );
 
 -- uo_reservation
@@ -157,8 +162,11 @@ CREATE TABLE teams (
     -- bracket-resolution logic this archive doesn't model
     final_standing integer,
     final_standing_calculated integer,
-    club_name text -- bare club_name, not an id
+    -- club is a real uo_team FK (nullable, null at a national-teams event); clubname is
+    -- the resolved text, only available from the team-detail endpoint, not reference
     -- sotg_token (spirit-submission token) not modeled: a credential, not a result
+    club integer, -- int(10)
+    clubname text -- varchar(50)
 );
 
 -- uo_player
@@ -178,6 +186,18 @@ CREATE TABLE players (
     games_played integer
 );
 
+-- uo_scheduling_name
+-- resolves a scheduling-name id (games.name/scheduling_name_home/scheduling_name_visitor)
+-- to its display text: a bracket-slot placeholder label like "4A", or a fixture's own
+-- short name like "wxo1"
+-- frompool (uo_moveteams.frompool, new in UltiOrganizer 4) names the pool a placeholder
+-- slot's team will be drawn from, when known.
+CREATE TABLE scheduling_names (
+    scheduling_id integer PRIMARY KEY, -- int(10)
+    name text NOT NULL, -- varchar(100)
+    frompool integer REFERENCES pools (pool_id) -- int(10)
+);
+
 -- uo_game
 CREATE TABLE games (
     game_id integer PRIMARY KEY, -- int(10)
@@ -193,9 +213,9 @@ CREATE TABLE games (
     respteam integer REFERENCES teams (team_id), -- int(10)
     resppers integer, -- int(10)
     isongoing integer DEFAULT 0, -- tinyint(1)
-    scheduling_name_home integer, -- int(10)
-    scheduling_name_visitor integer, -- int(10)
-    name integer, -- int(10); scheduling-name id, resolved via uo_scheduling_name (not exposed)
+    scheduling_name_home integer REFERENCES scheduling_names (scheduling_id), -- int(10)
+    scheduling_name_visitor integer REFERENCES scheduling_names (scheduling_id), -- int(10)
+    name integer REFERENCES scheduling_names (scheduling_id), -- int(10); scheduling-name id
     timeslot integer, -- int(10)
     homedefenses integer, -- smallint(5) DEFAULT 0
     visitordefenses integer, -- smallint(5) DEFAULT 0

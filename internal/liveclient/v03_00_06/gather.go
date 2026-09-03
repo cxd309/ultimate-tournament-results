@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v03_00_06"
+	livedatamodel "github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v03_00_06"
 )
 
 // Snapshot bundles everything Gather fetches from one deployment in a single archive
@@ -15,6 +15,10 @@ type Snapshot struct {
 	TeamDetailByID    map[int64]*livedatamodel.TeamDetailResponse
 	GameDetailByID    map[int64]*livedatamodel.GameDetailResponse
 	GamePoolsByGameID map[int64][]int64
+	// GamesListByGameID is the games-list endpoint's own entry per game,
+	// kept for its home/visitor scheduling frompool fields
+	// the only source for them, absent from both game_result and game_info
+	GamesListByGameID map[int64]livedatamodel.GameListEntry
 }
 
 // Gather fetches every response one archive run needs from this deployment: the
@@ -47,6 +51,7 @@ func (c *Client) Gather(ctx context.Context) (*Snapshot, error) {
 
 	detailByGameID := make(map[int64]*livedatamodel.GameDetailResponse, len(games.Games))
 	poolsByGameID := make(map[int64][]int64, len(games.Games))
+	gamesListByGameID := make(map[int64]livedatamodel.GameListEntry, len(games.Games))
 	for _, game := range games.Games {
 		detail, err := c.FetchGameDetail(ctx, game.GameID)
 		if err != nil {
@@ -54,6 +59,7 @@ func (c *Client) Gather(ctx context.Context) (*Snapshot, error) {
 		}
 		detailByGameID[detail.GameResult.GameID] = detail
 		poolsByGameID[game.GameID] = game.Pools
+		gamesListByGameID[game.GameID] = game
 	}
 
 	return &Snapshot{
@@ -62,5 +68,6 @@ func (c *Client) Gather(ctx context.Context) (*Snapshot, error) {
 		TeamDetailByID:    detailByTeamID,
 		GameDetailByID:    detailByGameID,
 		GamePoolsByGameID: poolsByGameID,
+		GamesListByGameID: gamesListByGameID,
 	}, nil
 }
