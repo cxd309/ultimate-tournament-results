@@ -413,8 +413,14 @@ func renderScoreboard(data *tournamentData, teamID *int64, gameID int64) []lived
 			Total:     done + fedin,
 		}
 	}
+	// sorted by total descending, done descending as a tie-break
+	// the tie-break isn't independently confirmed for this version, but
+	// matches what a real 3.0.6 deployment does, and costs nothing if wrong
 	sort.SliceStable(scoreboard, func(i, j int) bool {
-		return scoreboard[i].Total > scoreboard[j].Total
+		if scoreboard[i].Total != scoreboard[j].Total {
+			return scoreboard[i].Total > scoreboard[j].Total
+		}
+		return scoreboard[i].Done > scoreboard[j].Done
 	})
 	return scoreboard
 }
