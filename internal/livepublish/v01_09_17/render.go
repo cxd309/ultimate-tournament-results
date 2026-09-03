@@ -1,10 +1,18 @@
 package livepublish
 
 import (
+	"fmt"
+	"sort"
+	"time"
+
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
 	livedatamodel "github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v01_09_17"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_17"
 )
+
+// liveRoundMinutes is the fixed buffer PHP calls LIVE_ROUND_MINUTES
+// added to a day's last game start to get gameTimesByDay's "end"
+const liveRoundMinutes = 60
 
 func renderHeartbeat(data *tournamentData) livedatamodel.HeartbeatResponse {
 	return livedatamodel.HeartbeatResponse{
@@ -45,8 +53,86 @@ func renderSeason(data *tournamentData) livedatamodel.Season {
 		// this archiver only ever archives a finished tournament
 		// a republish is a static snapshot with no live clock to
 		// recompute status against, so it's always "completed"
-		Status: "completed",
+		Status:         "completed",
+		Timeslots:      renderTimeslots(data),
+		PlayerCount:    data.playerCount,
+		UtcOffset:      renderUtcOffset(data),
+		Spirit:         convert.IntBool(len(data.spiritScoresByGame) > 0),
+		GameTimesByDay: renderGameTimesByDay(data),
 	}
+}
+
+// renderTimeslots collects every distinct pool timeslot, sorted ascending
+func renderTimeslots(data *tournamentData) []int64 {
+	seen := make(map[int64]bool)
+	timeslots := make([]int64, 0)
+	for _, p := range data.pools {
+		if p.Timeslot == nil || seen[*p.Timeslot] {
+			continue
+		}
+		seen[*p.Timeslot] = true
+		timeslots = append(timeslots, *p.Timeslot)
+	}
+	sort.Slice(timeslots, func(i, j int) bool { return timeslots[i] < timeslots[j] })
+	return timeslots
+}
+
+// renderUtcOffset computes the tournament timezone's UTC offset
+// evaluated at the archive's own capture instant, since a republish has
+// no live "now" to evaluate it against
+// an invalid or empty timezone renders as ""
+func renderUtcOffset(data *tournamentData) string {
+	loc, err := time.LoadLocation(data.tournament.Timezone)
+	if err != nil {
+		return ""
+	}
+	at, err := time.Parse(time.RFC3339, data.tournament.ArchivedAt)
+	if err != nil {
+		return ""
+	}
+	_, offsetSeconds := at.In(loc).Zone()
+	sign := "+"
+	if offsetSeconds < 0 {
+		sign = "-"
+		offsetSeconds = -offsetSeconds
+	}
+	return fmt.Sprintf("%s%02d:%02d", sign, offsetSeconds/3600, (offsetSeconds%3600)/60)
+}
+
+// renderGameTimesByDay groups every scheduled game by its calendar day
+// first/last are the earliest/latest start times that day, End is Last
+// plus the fixed liveRoundMinutes buffer
+func renderGameTimesByDay(data *tournamentData) map[string]livedatamodel.DayTimes {
+	type span struct{ first, last time.Time }
+	byDay := make(map[string]span)
+	for _, g := range data.games {
+		if g.Time == "" {
+			continue
+		}
+		t, err := time.Parse("2006-01-02 15:04:05", g.Time)
+		if err != nil {
+			continue
+		}
+		day := t.Format("2006-01-02")
+		s, ok := byDay[day]
+		if !ok || t.Before(s.first) {
+			s.first = t
+		}
+		if !ok || t.After(s.last) {
+			s.last = t
+		}
+		byDay[day] = s
+	}
+
+	result := make(map[string]livedatamodel.DayTimes, len(byDay))
+	for day, s := range byDay {
+		result[day] = livedatamodel.DayTimes{
+			First: s.first.Format("15:04"),
+			Last:  s.last.Format("15:04"),
+			End:   s.last.Add(liveRoundMinutes * time.Minute).Format("15:04"),
+		}
+	}
+	return result
 }
 
 func renderSeries(data *tournamentData) []livedatamodel.Series {
@@ -189,11 +275,13 @@ func renderGameDetail(data *tournamentData, game store.Game) livedatamodel.GameD
 	}
 
 	return livedatamodel.GameDetailResponse{
-		GameResult:  result,
-		GameInfo:    renderGameInfo(data, game),
-		PoolInfo:    renderPoolInfo(data, game),
-		Goals:       renderGoals(data, game),
-		SpiritStats: renderSpiritStats(data, game),
+		GameResult:            result,
+		GameInfo:              renderGameInfo(data, game),
+		PoolInfo:              renderPoolInfo(data, game),
+		Goals:                 renderGoals(data, game),
+		SpiritStats:           renderSpiritStats(data, game),
+		HometeamScoreboard:    renderScoreboard(data, game.Hometeam, game.GameID),
+		VisitorteamScoreboard: renderScoreboard(data, game.Visitorteam, game.GameID),
 	}
 }
 
@@ -288,4 +376,41 @@ func renderSpiritStats(data *tournamentData, game store.Game) *livedatamodel.Gam
 		}
 	}
 	return stats
+}
+
+// renderScoreboard builds one team's full roster for this game
+// each player's done/fedin/total counted from this game's own goals
+// nil teamID means an unresolved bracket slot, no roster to show
+func renderScoreboard(data *tournamentData, teamID *int64, gameID int64) []livedatamodel.GameScoreboardPlayer {
+	if teamID == nil {
+		return nil
+	}
+	goals := data.goalsByGame[gameID]
+	roster := data.playersByTeam[*teamID]
+
+	scoreboard := make([]livedatamodel.GameScoreboardPlayer, len(roster))
+	for i, p := range roster {
+		var done, fedin int64
+		for _, g := range goals {
+			if g.Scorer != nil && *g.Scorer == p.PlayerID {
+				done++
+			}
+			if g.Assist != nil && *g.Assist == p.PlayerID {
+				fedin++
+			}
+		}
+		scoreboard[i] = livedatamodel.GameScoreboardPlayer{
+			PlayerID:  p.PlayerID,
+			FirstName: p.FirstName,
+			LastName:  p.LastName,
+			Num:       p.Num,
+			Done:      done,
+			Fedin:     fedin,
+			Total:     done + fedin,
+		}
+	}
+	sort.SliceStable(scoreboard, func(i, j int) bool {
+		return scoreboard[i].Total > scoreboard[j].Total
+	})
+	return scoreboard
 }

@@ -64,6 +64,7 @@ type tournamentData struct {
 	teams        []store.Team
 	reservations []store.Reservation
 	games        []store.Game
+	playerCount  int64
 
 	locationByID       map[int64]store.Location
 	poolByID           map[int64]store.Pool
@@ -131,6 +132,7 @@ func load(ctx context.Context, s *store.Store) (*tournamentData, error) {
 		teams:        teams,
 		reservations: reservations,
 		games:        games,
+		playerCount:  int64(len(players)),
 
 		locationByID:       make(map[int64]store.Location, len(locations)),
 		poolByID:           make(map[int64]store.Pool, len(pools)),
