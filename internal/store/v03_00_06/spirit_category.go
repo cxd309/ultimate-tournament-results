@@ -31,3 +31,24 @@ func (s *Store) InsertSpiritCategory(ctx context.Context, c SpiritCategory) erro
 		Label:         c.Label,
 	})
 }
+
+func (s *Store) ListSpiritCategories(ctx context.Context) ([]SpiritCategory, error) {
+	rows, err := s.q.ListSpiritCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+	categories := make([]SpiritCategory, len(rows))
+	for i, row := range rows {
+		categories[i] = SpiritCategory{
+			CategoryID:    row.CategoryID,
+			Mode:          row.Mode,
+			CategoryGroup: row.CategoryGroup,
+			Ordering:      row.Ordering,
+			Min:           row.Min,
+			Max:           row.Max,
+			Factor:        row.Factor,
+			Label:         row.Label,
+		}
+	}
+	return categories, nil
+}

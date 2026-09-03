@@ -81,3 +81,47 @@ func (s *Store) InsertPool(ctx context.Context, p Pool) error {
 		Follower:         convert.NullInt64(p.Follower),
 	})
 }
+
+func (s *Store) ListPools(ctx context.Context) ([]Pool, error) {
+	rows, err := s.q.ListPools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pools := make([]Pool, len(rows))
+	for i, row := range rows {
+		pools[i] = Pool{
+			PoolID:           row.PoolID,
+			Name:             convert.String(row.Name),
+			Ordering:         convert.String(row.Ordering),
+			Visible:          convert.IntBoolFromInt64(row.Visible),
+			Continuingpool:   convert.IntBoolFromInt64(row.Continuingpool),
+			Placementpool:    convert.IntBoolFromInt64(row.Placementpool.Int64),
+			Played:           convert.IntBoolFromInt64(row.Played),
+			Series:           convert.Int64(row.Series),
+			Type:             row.Type,
+			Color:            convert.String(row.Color),
+			Timeslot:         convert.Int64(row.Timeslot),
+			Isfollower:       convert.IntBoolFromInt64(row.Isfollower),
+			Drawsallowed:     convert.Int64(row.Drawsallowed),
+			PlayoffTemplate:  convert.String(row.PlayoffTemplate),
+			Teams:            convert.Int64(row.Teams),
+			Mvgames:          convert.Int64(row.Mvgames),
+			Timeoutlen:       convert.Int64(row.Timeoutlen),
+			Halftime:         convert.Int64(row.Halftime),
+			Winningscore:     convert.Int64(row.Winningscore),
+			Timecap:          convert.Int64(row.Timecap),
+			Scorecap:         convert.Int64(row.Scorecap),
+			Addscore:         convert.Int64(row.Addscore),
+			Halftimescore:    convert.Int64(row.Halftimescore),
+			Timeouts:         convert.Int64(row.Timeouts),
+			Timeoutsper:      convert.String(row.Timeoutsper),
+			Timeoutsovertime: convert.Int64(row.Timeoutsovertime),
+			Timeoutstimecap:  convert.String(row.Timeoutstimecap),
+			Betweenpointslen: convert.Int64(row.Betweenpointslen),
+			Forfeitscore:     convert.Int64(row.Forfeitscore),
+			Forfeitagainst:   convert.Int64(row.Forfeitagainst),
+			Follower:         convert.Int64(row.Follower),
+		}
+	}
+	return pools, nil
+}

@@ -23,3 +23,19 @@ func (s *Store) InsertSchedulingName(ctx context.Context, sn SchedulingName) err
 		Frompool:     convert.NullInt64(sn.Frompool),
 	})
 }
+
+func (s *Store) ListSchedulingNames(ctx context.Context) ([]SchedulingName, error) {
+	rows, err := s.q.ListSchedulingNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]SchedulingName, len(rows))
+	for i, row := range rows {
+		names[i] = SchedulingName{
+			SchedulingID: row.SchedulingID,
+			Name:         row.Name,
+			Frompool:     convert.Int64(row.Frompool),
+		}
+	}
+	return names, nil
+}
