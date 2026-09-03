@@ -296,6 +296,8 @@ type Goal struct {
 type GameSpiritStats struct {
 	Hometeam    *GameSpiritScore `json:"hometeam"`
 	Visitorteam *GameSpiritScore `json:"visitorteam"`
+	// Note is a fixed literal string, the same on every response
+	Note string `json:"note"`
 }
 
 // GameSpiritScore is one team's spirit score for one game, awarded by its opponent.

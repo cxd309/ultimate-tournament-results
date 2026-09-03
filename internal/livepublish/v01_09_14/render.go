@@ -351,12 +351,16 @@ func renderGoals(data *tournamentData, game store.Game) []livedatamodel.Goal {
 	return goals
 }
 
+// spiritStatsNote is a fixed literal string the live API sends unchanged
+// on every game's spiritstats
+const spiritStatsNote = "These are the scores FOR the specified team"
+
 func renderSpiritStats(data *tournamentData, game store.Game) *livedatamodel.GameSpiritStats {
 	scores := data.spiritScoresByGame[game.GameID]
 	if len(scores) == 0 {
 		return nil
 	}
-	stats := &livedatamodel.GameSpiritStats{}
+	stats := &livedatamodel.GameSpiritStats{Note: spiritStatsNote}
 	for _, sc := range scores {
 		score := &livedatamodel.GameSpiritScore{
 			GameID:   sc.GameID,

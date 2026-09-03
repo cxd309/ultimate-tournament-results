@@ -67,6 +67,22 @@ type Season struct {
 	Status                         string           `json:"status"`
 	SpiritMode                     *int64           `json:"spiritmode"`       // which spirit mode does this tournament use
 	SpiritCategories               []SpiritCategory `json:"spiritCategories"` // spirit categories per spirit mode
+	// Timeslots..GameTimesByDay are all computed at request time from data
+	// already covered elsewhere, not stored as their own columns
+	Timeslots      []int64             `json:"timeslots"`
+	PlayerCount    int64               `json:"player_count"`
+	UtcOffset      string              `json:"utcOffset"`
+	Spirit         convert.IntBool     `json:"spirit"`
+	GameTimesByDay map[string]DayTimes `json:"gameTimesByDay"`
+}
+
+// DayTimes is one entry in Season.GameTimesByDay
+// the first and last game start times on one day, plus End
+// End is Last plus the fixed round buffer (LiveRoundMinutes)
+type DayTimes struct {
+	First string `json:"first"`
+	Last  string `json:"last"`
+	End   string `json:"end"`
 }
 
 // SpiritCategory is one entry in Season.SpiritCategories
@@ -204,6 +220,16 @@ type GameListEntry struct {
 	VisitorSchedulingFrompool *int64
 }
 
+// MarshalJSON emits only game_id
+// pools/frompool are archived elsewhere (game_pools, scheduling_names)
+// this field only needs to enumerate ids, the other fields exist purely
+// to carry data through decode, not for publish to reconstruct
+func (g GameListEntry) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		GameID int64 `json:"game_id"`
+	}{GameID: g.GameID})
+}
+
 // GamesResponse.Games.Pools is sent as a comma-seperated, de-duplicted, sorted string
 // Unmarshall into a list of ints
 func (g *GameListEntry) UnmarshalJSON(data []byte) error {
@@ -235,15 +261,35 @@ func (g *GameListEntry) UnmarshalJSON(data []byte) error {
 // GameDetailResponse is the response of GET {basePath}{seasonId}_games_{gameId}.json
 // See openapi-3.0.6.yaml #/components/schemas/GameDetailResponse
 //
-// seasoninfo, teams, the two scoreboards, gameevents/mediaevents and the captains are
-// all either derivable from data already stored elsewhere or out of scope for this
+// seasoninfo, teams, gameevents/mediaevents and the captains are all either
+// derivable from data already stored elsewhere or out of scope for this
 // schema; game_info/poolinfo are only partially modeled, see GameInfo/PoolInfo
 type GameDetailResponse struct {
-	GameResult  GameResult       `json:"game_result"`
-	GameInfo    *GameInfo        `json:"game_info"`
-	PoolInfo    PoolInfo         `json:"poolinfo"`
-	Goals       []Goal           `json:"goals"`
-	SpiritStats *GameSpiritStats `json:"spiritstats"` // absent when the event doesn't publish spirit points
+	GameResult            GameResult             `json:"game_result"`
+	GameInfo              *GameInfo              `json:"game_info"`
+	PoolInfo              PoolInfo               `json:"poolinfo"`
+	Goals                 []Goal                 `json:"goals"`
+	SpiritStats           *GameSpiritStats       `json:"spiritstats"` // absent when the event doesn't publish spirit points
+	HometeamScoreboard    []GameScoreboardPlayer `json:"hometeam_scoreboard"`
+	VisitorteamScoreboard []GameScoreboardPlayer `json:"visitorteam_scoreboard"`
+}
+
+// GameScoreboardPlayer is one entry in GameDetailResponse's two scoreboards
+// a team's full roster for this game, each with this game's own
+// done (goals)/fedin (assists)/total, not season totals
+//
+// the live API also sends profile_id here, a separate cross-event player
+// identity this archiver doesn't capture anywhere, so it's left out
+// rather than guessed
+type GameScoreboardPlayer struct {
+	PlayerID  int64  `json:"player_id"`
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Num       *int64 `json:"num"`
+	Done      int64  `json:"done"`
+	Fedin     int64  `json:"fedin"`
+	Callahan  int64  `json:"callahan"`
+	Total     int64  `json:"total"`
 }
 
 // GameInfo is GameDetailResponse.GameInfo: the display view of the game, resolving
@@ -262,31 +308,31 @@ type GameInfo struct {
 // PlayoffTemplate decodes itself: the API sends it as a string, an integer or null, and
 // this archive's schema stores it as text regardless of which.
 type PoolInfo struct {
-	PoolID           int64
-	Drawsallowed     convert.IntBool
-	PlayoffTemplate  *string
-	Teams            *int64
-	Mvgames          *int64
-	Timeoutlen       *int64
-	Halftime         *int64
-	Winningscore     *int64
-	Timecap          *int64
-	Scorecap         *int64
-	Addscore         *int64
-	Halftimescore    *int64
-	Timeouts         *int64
-	Timeoutsper      string
-	Timeoutsovertime *int64
+	PoolID           int64           `json:"pool_id"`
+	Drawsallowed     convert.IntBool `json:"drawsallowed"`
+	PlayoffTemplate  *string         `json:"playoff_template"`
+	Teams            *int64          `json:"teams"`
+	Mvgames          *int64          `json:"mvgames"`
+	Timeoutlen       *int64          `json:"timeoutlen"`
+	Halftime         *int64          `json:"halftime"`
+	Winningscore     *int64          `json:"winningscore"`
+	Timecap          *int64          `json:"timecap"`
+	Scorecap         *int64          `json:"scorecap"`
+	Addscore         *int64          `json:"addscore"`
+	Halftimescore    *int64          `json:"halftimescore"`
+	Timeouts         *int64          `json:"timeouts"`
+	Timeoutsper      string          `json:"timeoutsper"`
+	Timeoutsovertime *int64          `json:"timeoutsovertime"`
 	// Timeoutstimecap mirrors uo_pool's own varchar(5) column
 	// Live! API sends as an integer
-	Timeoutstimecap  *int64
-	Betweenpointslen *int64
-	Forfeitscore     *int64
-	Forfeitagainst   *int64
+	Timeoutstimecap  *int64 `json:"timeoutstimecap"`
+	Betweenpointslen *int64 `json:"betweenpointslen"`
+	Forfeitscore     *int64 `json:"forfeitscore"`
+	Forfeitagainst   *int64 `json:"forfeitagainst"`
 	// Follower is the raw target pool id
 	// the reference endpoint only exposes the computed Pool.Isfollower
 	// derived from this, not the id itself
-	Follower *int64
+	Follower *int64 `json:"follower"`
 }
 
 func (p *PoolInfo) UnmarshalJSON(data []byte) error {
@@ -418,6 +464,8 @@ type Goal struct {
 type GameSpiritStats struct {
 	Hometeam    *GameSpiritScore `json:"hometeam"`
 	Visitorteam *GameSpiritScore `json:"visitorteam"`
+	// Note is a fixed literal string, the same on every response
+	Note string `json:"note"`
 }
 
 // GameSpiritScore is a team's spirit score for a game, awarded by their opponent
@@ -430,6 +478,19 @@ type GameSpiritScore struct {
 	// spirit comments are enabled for the season and
 	// game is cleared for publication
 	Comments *string
+}
+
+// MarshalJSON flattens Categories/Comments back to the live API's own shape
+// one key per category ("cat1", "cat2", ...) plus "comments"
+func (s GameSpiritScore) MarshalJSON() ([]byte, error) {
+	out := make(map[string]any, len(s.Categories)+1)
+	for key, value := range s.Categories {
+		out[key] = value
+	}
+	if s.Comments != nil {
+		out["comments"] = *s.Comments
+	}
+	return json.Marshal(out)
 }
 
 func (s *GameSpiritScore) UnmarshalJSON(data []byte) error {
