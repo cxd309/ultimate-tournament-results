@@ -550,3 +550,631 @@ func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentPara
 	)
 	return err
 }
+
+const listCountries = `-- name: ListCountries :many
+SELECT
+    country_id, name, abbreviation, flag_file, valid
+FROM
+    countries
+ORDER BY
+    country_id
+`
+
+func (q *Queries) ListCountries(ctx context.Context) ([]Country, error) {
+	rows, err := q.db.QueryContext(ctx, listCountries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Country
+	for rows.Next() {
+		var i Country
+		if err := rows.Scan(
+			&i.CountryID,
+			&i.Name,
+			&i.Abbreviation,
+			&i.FlagFile,
+			&i.Valid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDivisions = `-- name: ListDivisions :many
+SELECT
+    series_id, name, ordering, season, valid, type, color, pool_template
+FROM
+    divisions
+ORDER BY
+    series_id
+`
+
+func (q *Queries) ListDivisions(ctx context.Context) ([]Division, error) {
+	rows, err := q.db.QueryContext(ctx, listDivisions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Division
+	for rows.Next() {
+		var i Division
+		if err := rows.Scan(
+			&i.SeriesID,
+			&i.Name,
+			&i.Ordering,
+			&i.Season,
+			&i.Valid,
+			&i.Type,
+			&i.Color,
+			&i.PoolTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGamePools = `-- name: ListGamePools :many
+SELECT
+    game_id, pool_id, timetable
+FROM
+    game_pools
+ORDER BY
+    game_id,
+    pool_id
+`
+
+func (q *Queries) ListGamePools(ctx context.Context) ([]GamePool, error) {
+	rows, err := q.db.QueryContext(ctx, listGamePools)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GamePool
+	for rows.Next() {
+		var i GamePool
+		if err := rows.Scan(&i.GameID, &i.PoolID, &i.Timetable); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGames = `-- name: ListGames :many
+SELECT
+    game_id, hometeam, visitorteam, homescore, visitorscore, reservation, time, valid, halftime, official, respteam, resppers, isongoing, scheduling_name_home, scheduling_name_visitor, name, timeslot, homedefenses, visitordefenses, islive, liveurl, hasstarted, show_spirit, timer_start, timer_pause_start, timer_paused_duration, forfeit
+FROM
+    games
+ORDER BY
+    game_id
+`
+
+func (q *Queries) ListGames(ctx context.Context) ([]Game, error) {
+	rows, err := q.db.QueryContext(ctx, listGames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Game
+	for rows.Next() {
+		var i Game
+		if err := rows.Scan(
+			&i.GameID,
+			&i.Hometeam,
+			&i.Visitorteam,
+			&i.Homescore,
+			&i.Visitorscore,
+			&i.Reservation,
+			&i.Time,
+			&i.Valid,
+			&i.Halftime,
+			&i.Official,
+			&i.Respteam,
+			&i.Resppers,
+			&i.Isongoing,
+			&i.SchedulingNameHome,
+			&i.SchedulingNameVisitor,
+			&i.Name,
+			&i.Timeslot,
+			&i.Homedefenses,
+			&i.Visitordefenses,
+			&i.Islive,
+			&i.Liveurl,
+			&i.Hasstarted,
+			&i.ShowSpirit,
+			&i.TimerStart,
+			&i.TimerPauseStart,
+			&i.TimerPausedDuration,
+			&i.Forfeit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGoals = `-- name: ListGoals :many
+SELECT
+    game_id, num, assist, scorer, time, homescore, visitorscore, ishomegoal, iscallahan, timestamp
+FROM
+    goals
+ORDER BY
+    game_id,
+    num
+`
+
+func (q *Queries) ListGoals(ctx context.Context) ([]Goal, error) {
+	rows, err := q.db.QueryContext(ctx, listGoals)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Goal
+	for rows.Next() {
+		var i Goal
+		if err := rows.Scan(
+			&i.GameID,
+			&i.Num,
+			&i.Assist,
+			&i.Scorer,
+			&i.Time,
+			&i.Homescore,
+			&i.Visitorscore,
+			&i.Ishomegoal,
+			&i.Iscallahan,
+			&i.Timestamp,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLocations = `-- name: ListLocations :many
+SELECT
+    id, name, fields, indoor, address, lat, lng
+FROM
+    locations
+ORDER BY
+    id
+`
+
+func (q *Queries) ListLocations(ctx context.Context) ([]Location, error) {
+	rows, err := q.db.QueryContext(ctx, listLocations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Location
+	for rows.Next() {
+		var i Location
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Fields,
+			&i.Indoor,
+			&i.Address,
+			&i.Lat,
+			&i.Lng,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlayers = `-- name: ListPlayers :many
+SELECT
+    player_id, firstname, lastname, team, num, accreditation_id, accredited, profile_id, games_played
+FROM
+    players
+ORDER BY
+    player_id
+`
+
+func (q *Queries) ListPlayers(ctx context.Context) ([]Player, error) {
+	rows, err := q.db.QueryContext(ctx, listPlayers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Player
+	for rows.Next() {
+		var i Player
+		if err := rows.Scan(
+			&i.PlayerID,
+			&i.Firstname,
+			&i.Lastname,
+			&i.Team,
+			&i.Num,
+			&i.AccreditationID,
+			&i.Accredited,
+			&i.ProfileID,
+			&i.GamesPlayed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPoolPlacements = `-- name: ListPoolPlacements :many
+SELECT
+    pool_id, team_id, placement
+FROM
+    pool_placements
+ORDER BY
+    pool_id,
+    team_id
+`
+
+func (q *Queries) ListPoolPlacements(ctx context.Context) ([]PoolPlacement, error) {
+	rows, err := q.db.QueryContext(ctx, listPoolPlacements)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PoolPlacement
+	for rows.Next() {
+		var i PoolPlacement
+		if err := rows.Scan(&i.PoolID, &i.TeamID, &i.Placement); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPools = `-- name: ListPools :many
+SELECT
+    pool_id, name, ordering, visible, continuingpool, placementpool, teams, mvgames, timeoutlen, halftime, winningscore, timecap, scorecap, played, addscore, halftimescore, timeouts, timeoutsper, timeoutsovertime, timeoutstimecap, betweenpointslen, series, type, timeslot, color, forfeitscore, forfeitagainst, follower, drawsallowed, playoff_template, isfollower
+FROM
+    pools
+ORDER BY
+    pool_id
+`
+
+func (q *Queries) ListPools(ctx context.Context) ([]Pool, error) {
+	rows, err := q.db.QueryContext(ctx, listPools)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Pool
+	for rows.Next() {
+		var i Pool
+		if err := rows.Scan(
+			&i.PoolID,
+			&i.Name,
+			&i.Ordering,
+			&i.Visible,
+			&i.Continuingpool,
+			&i.Placementpool,
+			&i.Teams,
+			&i.Mvgames,
+			&i.Timeoutlen,
+			&i.Halftime,
+			&i.Winningscore,
+			&i.Timecap,
+			&i.Scorecap,
+			&i.Played,
+			&i.Addscore,
+			&i.Halftimescore,
+			&i.Timeouts,
+			&i.Timeoutsper,
+			&i.Timeoutsovertime,
+			&i.Timeoutstimecap,
+			&i.Betweenpointslen,
+			&i.Series,
+			&i.Type,
+			&i.Timeslot,
+			&i.Color,
+			&i.Forfeitscore,
+			&i.Forfeitagainst,
+			&i.Follower,
+			&i.Drawsallowed,
+			&i.PlayoffTemplate,
+			&i.Isfollower,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReservations = `-- name: ListReservations :many
+SELECT
+    id, location, fieldname, reservationgroup, starttime, endtime, season, timeslots, date
+FROM
+    reservations
+ORDER BY
+    id
+`
+
+func (q *Queries) ListReservations(ctx context.Context) ([]Reservation, error) {
+	rows, err := q.db.QueryContext(ctx, listReservations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Reservation
+	for rows.Next() {
+		var i Reservation
+		if err := rows.Scan(
+			&i.ID,
+			&i.Location,
+			&i.Fieldname,
+			&i.Reservationgroup,
+			&i.Starttime,
+			&i.Endtime,
+			&i.Season,
+			&i.Timeslots,
+			&i.Date,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSchedulingNames = `-- name: ListSchedulingNames :many
+SELECT
+    scheduling_id, name, frompool
+FROM
+    scheduling_names
+ORDER BY
+    scheduling_id
+`
+
+func (q *Queries) ListSchedulingNames(ctx context.Context) ([]SchedulingName, error) {
+	rows, err := q.db.QueryContext(ctx, listSchedulingNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SchedulingName
+	for rows.Next() {
+		var i SchedulingName
+		if err := rows.Scan(&i.SchedulingID, &i.Name, &i.Frompool); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpiritCategories = `-- name: ListSpiritCategories :many
+SELECT
+    category_id, mode, category_group, ordering, min, max, factor, label
+FROM
+    spirit_categories
+ORDER BY
+    category_id
+`
+
+func (q *Queries) ListSpiritCategories(ctx context.Context) ([]SpiritCategory, error) {
+	rows, err := q.db.QueryContext(ctx, listSpiritCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SpiritCategory
+	for rows.Next() {
+		var i SpiritCategory
+		if err := rows.Scan(
+			&i.CategoryID,
+			&i.Mode,
+			&i.CategoryGroup,
+			&i.Ordering,
+			&i.Min,
+			&i.Max,
+			&i.Factor,
+			&i.Label,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpiritComments = `-- name: ListSpiritComments :many
+SELECT
+    game_id, team_id, comment
+FROM
+    spirit_comments
+ORDER BY
+    game_id,
+    team_id
+`
+
+func (q *Queries) ListSpiritComments(ctx context.Context) ([]SpiritComment, error) {
+	rows, err := q.db.QueryContext(ctx, listSpiritComments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SpiritComment
+	for rows.Next() {
+		var i SpiritComment
+		if err := rows.Scan(&i.GameID, &i.TeamID, &i.Comment); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpiritScores = `-- name: ListSpiritScores :many
+SELECT
+    game_id, team_id, category_id, value
+FROM
+    spirit_scores
+ORDER BY
+    game_id,
+    team_id,
+    category_id
+`
+
+func (q *Queries) ListSpiritScores(ctx context.Context) ([]SpiritScore, error) {
+	rows, err := q.db.QueryContext(ctx, listSpiritScores)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SpiritScore
+	for rows.Next() {
+		var i SpiritScore
+		if err := rows.Scan(
+			&i.GameID,
+			&i.TeamID,
+			&i.CategoryID,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTeams = `-- name: ListTeams :many
+SELECT
+    team_id, name, pool, rank, activerank, valid, series, country, abbreviation, final_standing, final_standing_calculated, club, clubname
+FROM
+    teams
+ORDER BY
+    team_id
+`
+
+func (q *Queries) ListTeams(ctx context.Context) ([]Team, error) {
+	rows, err := q.db.QueryContext(ctx, listTeams)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Team
+	for rows.Next() {
+		var i Team
+		if err := rows.Scan(
+			&i.TeamID,
+			&i.Name,
+			&i.Pool,
+			&i.Rank,
+			&i.Activerank,
+			&i.Valid,
+			&i.Series,
+			&i.Country,
+			&i.Abbreviation,
+			&i.FinalStanding,
+			&i.FinalStandingCalculated,
+			&i.Club,
+			&i.Clubname,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
