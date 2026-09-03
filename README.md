@@ -44,6 +44,26 @@ Sharing stops at whatever's genuinely mechanical (HTTP fetch, transaction/commit
 | 2.0.0                     | -               | Not Planned    |
 | 3.0.6                     | v03_00_06       | In Development |
 
+## Archived tournaments
+
+| Event                    | Tournament start date | Host                                  | Live!       | Archive                                |
+| ------------------------ | --------------------- | ------------------------------------- | ----------- | -------------------------------------- |
+| EBUCC 2023               | 2023-06-09            | `live.ebucc.eu`                       | v01_09_14 ¹ | [`ebucc2023`](docs/archive/EBUCC2023/) |
+| WBUCC 2024               | 2024-10-14            | `live.wbucc.org`                      | v01_09_14 ¹ | [`wbucc2024`](docs/archive/wbucc2024/) |
+| EBUCC 2025               | 2025-06-06            | `live.ebucc.eu`                       | v01_09_14 ¹ | [`ebucc2025`](docs/archive/ebucc2025/) |
+| WWUC 2025                | 2025-09-18            | `results.wfdf.sport/wwuc`             | v01_09_14   | [`WWUC2025`](docs/archive/WWUC2025/)   |
+| EUCF 2025 Wroclaw        | 2025-09-26            | `eucf.ultimatefederation.eu`          | v01_09_14 ¹ | [`e2cf25`](docs/archive/e2cf25/)       |
+| WBUC 2025                | 2025-11-16            | `wbuc.wfdf.sport`                     | v01_09_14   | [`wbuc2025`](docs/archive/wbuc2025/)   |
+| PAUC 2025                | 2025-12-01            | `results.pauc.sport`                  | v01_09_14   | [`pauc2025`](docs/archive/pauc2025/)   |
+| EUIC 2026                | 2026-01-29            | `euic-schedule.ultimatefederation.eu` | v01_09_14   | [`euic2026`](docs/archive/euic2026/)   |
+| Elite Invite 2026 Leuven | 2026-05-23            | `elite-invite.ultimatefederation.eu`  | v01_09_14   | [`26ELITLEU`](docs/archive/26ELITLEU/) |
+| WMUCC 2026               | 2026-06-28            | `wmucc.wfdf.sport`                    | v01_09_14   | [`wmucc2026`](docs/archive/wmucc2026/) |
+| WJUC 2026                | 2026-07-11            | `wjuc.wfdf.sport`                     | v01_09_14   | [`wjuc2026`](docs/archive/wjuc2026/)   |
+| EYUC U17 2026 Vienna     | 2026-08-03            | `eyuc-schedule.ultimatefederation.eu` | v01_09_14   | [`26EYUCVIE`](docs/archive/26EYUCVIE/) |
+| WUCC 2026                | 2026-08-15            | `results.wfdf.sport/wucc-2026`        | v03_00_06   | [`WUCC2026`](docs/archive/WUCC2026/)   |
+
+¹ archived from a deployment outside live-by-bula-openapi's supported set, using the `-season-id`/`-unprefixed` flags described in [Legacy deployments](#legacy-deployments)
+
 ## Workflow
 
 1. **Archive** a tournament once it's finished. Find its host, base path and spec version, and run `utr` with that version (see [compatibility](#compatibility))
@@ -63,6 +83,17 @@ Sharing stops at whatever's genuinely mechanical (HTTP fetch, transaction/commit
    intended to be generated from what's actually in `data/*.db`, not hand-maintained, so it can never drift from the archive.
 
 Team photos and other media event links are not currently archived at all, they are real uploaded image files served by the deployment, not JSON data, so capturing them needs a future change to fetch and store the actual assets rather than just their metadata.
+
+### Legacy deployments
+
+A handful of known deployments serve the exact 1.9.14-1.9.16 response shape but don't follow its normal conventions -- see live-by-bula-openapi's own [Legacy and unsupported deployments](https://github.com/cxd309/live-by-bula-openapi#legacy-and-unsupported-deployments) section for the full list and why each one is flagged. `utr -version v01_09_14` covers them with two extra flags, both additive: the archive and its published output end up looking exactly like a normal 1.9.14-1.9.17 tournament either way.
+
+- `-season-id` overrides the season id instead of discovering it from the heartbeat, for deployments whose heartbeat has no `config` block, or no heartbeat endpoint at all
+- `-unprefixed` for deployments that serve static filenames with no season-id prefix (`reference.json` instead of `{seasonId}_reference.json`)
+
+```
+dist/utr -version v01_09_14 -mode all -host live.wbucc.org -base-path /live/data/ -unprefixed -season-id wbucc2024
+```
 
 ## Development usage
 
