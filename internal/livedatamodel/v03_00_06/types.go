@@ -108,8 +108,9 @@ type Pool struct {
 	Played        convert.IntBool `json:"played"`
 	Placementpool convert.IntBool `json:"placementpool"`
 	Continuing    convert.IntBool `json:"continuingpool"`
-	Color         string          `json:"color"`
-	Timeslot      *int64          `json:"timeslot"`
+	// Color can arrive as a JSON string or a bare number, see NumericString
+	Color    convert.NumericString `json:"color"`
+	Timeslot *int64                `json:"timeslot"`
 	// Isfollower is computed by the reference endpoint from the raw `follower` column
 	// (the target pool id itself, only exposed via poolinfo, see PoolInfo.Follower)
 	Isfollower convert.IntBool `json:"isfollower"`

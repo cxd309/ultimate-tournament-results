@@ -74,7 +74,7 @@ func renderPools(data *tournamentData) []livedatamodel.Pool {
 			Played:        p.Played,
 			Placementpool: p.Placementpool,
 			Continuing:    p.Continuingpool,
-			Color:         p.Color,
+			Color:         convert.NumericString(p.Color),
 			Timeslot:      p.Timeslot,
 		}
 	}

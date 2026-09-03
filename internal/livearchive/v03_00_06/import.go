@@ -212,7 +212,7 @@ func importPools(ctx context.Context, s *store.Store, ref *livedatamodel.Referen
 			Played:         pool.Played,
 			Series:         &seriesID,
 			Type:           pool.Type,
-			Color:          pool.Color,
+			Color:          string(pool.Color),
 			Timeslot:       pool.Timeslot,
 			Isfollower:     pool.Isfollower,
 		}

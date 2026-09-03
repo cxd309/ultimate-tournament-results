@@ -68,8 +68,9 @@ type Pool struct {
 	Played        convert.IntBool `json:"played"`
 	Placementpool convert.IntBool `json:"placementpool"`
 	Continuing    convert.IntBool `json:"continuingpool"`
-	Color         string          `json:"color"`
-	Timeslot      *int64          `json:"timeslot"`
+	// Color can arrive as a JSON string or a bare number, see NumericString
+	Color    convert.NumericString `json:"color"`
+	Timeslot *int64                `json:"timeslot"`
 }
 
 // Country is one entry in ReferenceResponse.Countries
