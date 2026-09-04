@@ -20,7 +20,7 @@ func WriteDocsCSV(tournaments []Tournament, path string) error {
 		return err
 	}
 	for _, t := range tournaments {
-		row := []string{t.Slug, t.Event, t.StartDate, t.Host, t.LiveVersion, t.LegacyFlags}
+		row := []string{t.Slug, t.Event, t.StartDate, t.Host, t.Version, t.OriginalVersion, t.LegacyFlags, t.Notes}
 		if err := w.Write(row); err != nil {
 			return err
 		}

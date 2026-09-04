@@ -36,18 +36,17 @@ func run() error {
 
 // Tournament is one row of tournaments.csv
 type Tournament struct {
-	Slug        string
-	Event       string
-	StartDate   string
-	Host        string
-	LiveVersion string
-	// LegacyFlags is blank for a normal deployment
-	// otherwise the space-separated -season-id/-unprefixed flags
-	// this tournament's archive command needed, e.g. "-season-id -unprefixed"
-	LegacyFlags string
+	Slug            string
+	Event           string
+	StartDate       string
+	Host            string
+	Version         string // -version flag tournament was archived with
+	OriginalVersion string // app_version depolyment reported
+	LegacyFlags     string // blank normally otherwise flags
+	Notes           string // freeform notes
 }
 
 // csvHeader is written to docs/tournaments.csv
 // and checked against tournaments.csv
 // keep in sync with the Tournament struct field order
-var csvHeader = []string{"slug", "event", "start_date", "host", "live_version", "legacy_flags"}
+var csvHeader = []string{"slug", "event", "start_date", "host", "version", "original_version", "legacy_flags", "notes"}

@@ -8,7 +8,7 @@ import (
 
 // readmeTableHeaders is the README table's header row
 // keep in sync with the cell order renderReadmeTable builds per tournament
-var readmeTableHeaders = []string{"Event", "Date", "Host", "Live!", "[Legacy flags](#legacy-deployments)", "Archive"}
+var readmeTableHeaders = []string{"Event", "Date", "Host", "Version", "[Legacy flags](#legacy-deployments)", "Archive", "Notes"}
 
 const (
 	readmeStartMarker = "<!-- tournaments:start -->"
@@ -60,9 +60,10 @@ func renderReadmeTable(tournaments []Tournament) string {
 			t.Event,
 			t.StartDate,
 			"`" + t.Host + "`",
-			t.LiveVersion,
+			formatVersion(t.Version, t.OriginalVersion),
 			legacyCell(t.LegacyFlags),
 			fmt.Sprintf("[`%s`](docs/archive/%s/)", t.Slug, t.Slug),
+			t.Notes,
 		})
 	}
 
@@ -81,4 +82,39 @@ func legacyCell(flags string) string {
 		parts[i] = "`" + p + "`"
 	}
 	return strings.Join(parts, " ")
+}
+
+// formatVersion shows version (original_version)
+// if same then only show version
+func formatVersion(version, original string) string {
+	if original == "" {
+		return version
+	}
+	originalDisplay := original
+	if isRelease(original) {
+		originalDisplay = "v" + original
+	}
+	if originalDisplay == version {
+		return version
+	}
+	return fmt.Sprintf("%s (%s)", version, originalDisplay)
+}
+
+// isRelease reports whether s is a plain x.y.z release string
+func isRelease(s string) bool {
+	parts := strings.Split(s, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+		for _, r := range p {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
