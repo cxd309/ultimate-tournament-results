@@ -1,0 +1,14 @@
+slug,event,start_date,host,live_version,legacy_flags
+EBUCC2023,EBUCC 2023,2023-06-09,live.ebucc.eu,v01_09_14,-unprefixed
+wbucc2024,WBUCC 2024,2024-10-14,live.wbucc.org,v01_09_14,-season-id -unprefixed
+ebucc2025,EBUCC 2025,2025-06-06,live.ebucc.eu,v01_09_14,-unprefixed
+WWUC2025,WWUC 2025,2025-09-18,results.wfdf.sport/wwuc,v01_09_14,
+e2cf25,EUCF 2025,2025-09-26,eucf.ultimatefederation.eu,v01_09_14,-season-id
+wbuc2025,WBUC 2025,2025-11-16,wbuc.wfdf.sport,v01_09_14,
+pauc2025,PAUC 2025,2025-12-01,results.pauc.sport,v01_09_14,
+euic2026,EUIC 2026,2026-01-29,euic-schedule.ultimatefederation.eu,v01_09_14,
+26ELITLEU,Elite Invite 2026,2026-05-23,elite-invite.ultimatefederation.eu,v01_09_14,
+wmucc2026,WMUCC 2026,2026-06-28,wmucc.wfdf.sport,v01_09_14,
+wjuc2026,WJUC 2026,2026-07-11,wjuc.wfdf.sport,v01_09_14,
+26EYUCVIE,EYUC U17 2026,2026-08-03,eyuc-schedule.ultimatefederation.eu,v01_09_14,
+WUCC2026,WUCC 2026,2026-08-15,results.wfdf.sport/wucc-2026,v03_00_06,

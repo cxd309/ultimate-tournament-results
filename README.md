@@ -27,8 +27,13 @@ internal/liveversion/              registry mapping a -version flag value to tha
 internal/convert/                  sql to plain go type conversions
 cmd/utr/                           the single CLI: -version selects the spec
                                    implementation, -mode selects archive/publish/all
+cmd/gensite/                       regenerates docs/tournaments.csv and the README
+                                   table from tournaments.csv, run via `just index`
 data/                              data archive, one sqlite .db file per tournament
 docs/                              GitHub Pages web root
+docs/index.html                    homepage, renders docs/tournaments.csv as a table
+docs/tournaments.csv               generated copy of tournaments.csv, fetched by
+                                   docs/index.html
 docs/archive/                      published static JSON, one folder per tournament
 ```
 
@@ -46,23 +51,28 @@ Sharing stops at whatever's genuinely mechanical (HTTP fetch, transaction/commit
 
 ## Archived tournaments
 
-| Event                    | Tournament start date | Host                                  | Live!       | Archive                                |
-| ------------------------ | --------------------- | ------------------------------------- | ----------- | -------------------------------------- |
-| EBUCC 2023               | 2023-06-09            | `live.ebucc.eu`                       | v01_09_14 ¹ | [`ebucc2023`](docs/archive/EBUCC2023/) |
-| WBUCC 2024               | 2024-10-14            | `live.wbucc.org`                      | v01_09_14 ¹ | [`wbucc2024`](docs/archive/wbucc2024/) |
-| EBUCC 2025               | 2025-06-06            | `live.ebucc.eu`                       | v01_09_14 ¹ | [`ebucc2025`](docs/archive/ebucc2025/) |
-| WWUC 2025                | 2025-09-18            | `results.wfdf.sport/wwuc`             | v01_09_14   | [`WWUC2025`](docs/archive/WWUC2025/)   |
-| EUCF 2025 Wroclaw        | 2025-09-26            | `eucf.ultimatefederation.eu`          | v01_09_14 ¹ | [`e2cf25`](docs/archive/e2cf25/)       |
-| WBUC 2025                | 2025-11-16            | `wbuc.wfdf.sport`                     | v01_09_14   | [`wbuc2025`](docs/archive/wbuc2025/)   |
-| PAUC 2025                | 2025-12-01            | `results.pauc.sport`                  | v01_09_14   | [`pauc2025`](docs/archive/pauc2025/)   |
-| EUIC 2026                | 2026-01-29            | `euic-schedule.ultimatefederation.eu` | v01_09_14   | [`euic2026`](docs/archive/euic2026/)   |
-| Elite Invite 2026 Leuven | 2026-05-23            | `elite-invite.ultimatefederation.eu`  | v01_09_14   | [`26ELITLEU`](docs/archive/26ELITLEU/) |
-| WMUCC 2026               | 2026-06-28            | `wmucc.wfdf.sport`                    | v01_09_14   | [`wmucc2026`](docs/archive/wmucc2026/) |
-| WJUC 2026                | 2026-07-11            | `wjuc.wfdf.sport`                     | v01_09_14   | [`wjuc2026`](docs/archive/wjuc2026/)   |
-| EYUC U17 2026 Vienna     | 2026-08-03            | `eyuc-schedule.ultimatefederation.eu` | v01_09_14   | [`26EYUCVIE`](docs/archive/26EYUCVIE/) |
-| WUCC 2026                | 2026-08-15            | `results.wfdf.sport/wucc-2026`        | v03_00_06   | [`WUCC2026`](docs/archive/WUCC2026/)   |
+Generated from [`tournaments.csv`](tournaments.csv) by `just index`
+do not edit this table by hand, edit the csv and regenerate instead
 
-¹ archived from a deployment outside live-by-bula-openapi's supported set, using the `-season-id`/`-unprefixed` flags described in [Legacy deployments](#legacy-deployments)
+<!-- tournaments:start -->
+
+| Event             | Date       | Host                                  | Live!     | [Legacy flags](#legacy-deployments) | Archive                                |
+| ----------------- | ---------- | ------------------------------------- | --------- | ----------------------------------- | -------------------------------------- |
+| EBUCC 2023        | 2023-06-09 | `live.ebucc.eu`                       | v01_09_14 | `-unprefixed`                       | [`EBUCC2023`](docs/archive/EBUCC2023/) |
+| WBUCC 2024        | 2024-10-14 | `live.wbucc.org`                      | v01_09_14 | `-season-id` `-unprefixed`          | [`wbucc2024`](docs/archive/wbucc2024/) |
+| EBUCC 2025        | 2025-06-06 | `live.ebucc.eu`                       | v01_09_14 | `-unprefixed`                       | [`ebucc2025`](docs/archive/ebucc2025/) |
+| WWUC 2025         | 2025-09-18 | `results.wfdf.sport/wwuc`             | v01_09_14 |                                     | [`WWUC2025`](docs/archive/WWUC2025/)   |
+| EUCF 2025         | 2025-09-26 | `eucf.ultimatefederation.eu`          | v01_09_14 | `-season-id`                        | [`e2cf25`](docs/archive/e2cf25/)       |
+| WBUC 2025         | 2025-11-16 | `wbuc.wfdf.sport`                     | v01_09_14 |                                     | [`wbuc2025`](docs/archive/wbuc2025/)   |
+| PAUC 2025         | 2025-12-01 | `results.pauc.sport`                  | v01_09_14 |                                     | [`pauc2025`](docs/archive/pauc2025/)   |
+| EUIC 2026         | 2026-01-29 | `euic-schedule.ultimatefederation.eu` | v01_09_14 |                                     | [`euic2026`](docs/archive/euic2026/)   |
+| Elite Invite 2026 | 2026-05-23 | `elite-invite.ultimatefederation.eu`  | v01_09_14 |                                     | [`26ELITLEU`](docs/archive/26ELITLEU/) |
+| WMUCC 2026        | 2026-06-28 | `wmucc.wfdf.sport`                    | v01_09_14 |                                     | [`wmucc2026`](docs/archive/wmucc2026/) |
+| WJUC 2026         | 2026-07-11 | `wjuc.wfdf.sport`                     | v01_09_14 |                                     | [`wjuc2026`](docs/archive/wjuc2026/)   |
+| EYUC U17 2026     | 2026-08-03 | `eyuc-schedule.ultimatefederation.eu` | v01_09_14 |                                     | [`26EYUCVIE`](docs/archive/26EYUCVIE/) |
+| WUCC 2026         | 2026-08-15 | `results.wfdf.sport/wucc-2026`        | v03_00_06 |                                     | [`WUCC2026`](docs/archive/WUCC2026/)   |
+
+<!-- tournaments:end -->
 
 ## Workflow
 
@@ -78,9 +88,9 @@ Sharing stops at whatever's genuinely mechanical (HTTP fetch, transaction/commit
 
 2. **Publish** the archive to `docs/archive/<slug>/` for GitHub Pages, via `-mode publish` or `-mode all`. Renders every endpoint's JSON under the live API's own relative filenames, so pointing a tool's `host`/`basePath` at the published folder is a drop-in replacement for the original deployment.
 
-3. **Update** the homepage index (planned)
+3. **Add** the tournament to [`tournaments.csv`](tournaments.csv), then run `just index` to regenerate the README table above and `docs/tournaments.csv`, which [`docs/index.html`](docs/index.html) renders as the homepage's tournament list.
 
-   intended to be generated from what's actually in `data/*.db`, not hand-maintained, so it can never drift from the archive.
+   `tournaments.csv` is hand-maintained rather than read straight out of `data/*.db`: the display columns (event name, legacy footnote) are editorial judgement calls, not archive data, so a hand-edited row can't drift out of sync with an automated one.
 
 Team photos and other media event links are not currently archived at all, they are real uploaded image files served by the deployment, not JSON data, so capturing them needs a future change to fetch and store the actual assets rather than just their metadata.
 
@@ -95,12 +105,29 @@ A handful of known deployments serve the exact 1.9.14-1.9.16 response shape but 
 dist/utr -version v01_09_14 -mode all -host live.wbucc.org -base-path /live/data/ -unprefixed -season-id wbucc2024
 ```
 
+## Dependencies
+
+Everything below is invoked from the [`justfile`](justfile), run `just check-deps`
+to confirm they're all on `PATH`
+
+| Tool                                                               | Used for                                                                           |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| [Go](https://go.dev/dl/) 1.26+                                     | building/running `cmd/utr`, `cmd/gensite`, `gofmt`                                 |
+| [just](https://github.com/casey/just)                              | running the recipes below                                                          |
+| [golangci-lint](https://golangci-lint.run/)                        | `just fmt`                                                                         |
+| [dprint](https://dprint.dev/)                                      | `just fmt`, formats markdown/json/toml/yaml                                        |
+| [pgFormatter](https://github.com/darold/pgFormatter) (`pg_format`) | `just fmt`, formats `db/**/*.sql`                                                  |
+| [sqlc](https://sqlc.dev/)                                          | `just dbgen`                                                                       |
+| [simple-file-server](https://github.com/cxd309/simple-file-server) | `just serve`, install via `go install github.com/cxd309/simple-file-server@latest` |
+
 ## Development usage
 
 ```
 just check-deps   # confirm required CLI tools are installed
+just index        # regenerate README table + docs/tournaments.csv from tournaments.csv
 just dbgen        # sqlc generate internal/db/ packages from db/ with
 just build        # compile the utr binary into dist/
+just serve        # serve docs/ locally, emulating GitHub Pages
 just clean        # remove dist/
 just fmt          # go mod tidy, gofmt, golangci-lint, dprint, pg_format
 ```

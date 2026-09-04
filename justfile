@@ -12,7 +12,7 @@ check-deps:
     @echo "All dependencies are probably found"
 
 # ── Format: dprint, shfmt, pg_format ─────────────────────────────────────────
-fmt:
+fmt: index
     go mod tidy
     gofmt -w .
     golangci-lint run
@@ -26,6 +26,10 @@ dbgen: fmt
 # ── Clean: remove build output ────────────────────────────────────────────────
 clean:
     rm -rf {{ dist_dir }}
+
+# ── Index: regenerate README table + docs/tournaments.csv from tournaments.csv ─
+index:
+    go run ./cmd/gensite
 
 # ── Build: compile cmd/utr into {{ dist_dir }}/utr ────────────────────────────
 build: clean fmt
