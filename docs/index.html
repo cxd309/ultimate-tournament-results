@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ultimate Tournament Results</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥏</text></svg>"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    />
+    <link rel="stylesheet" href="index.css" />
+    <script
+      src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"
+      defer
+    ></script>
+    <!--
+      not deferred: applyInitialTheme() in here must run before <body>
+      paints, everything else in the file waits for DOMContentLoaded
+    -->
+    <script src="index.js"></script>
+  </head>
+  <body>
+    <header class="hero py-5 mb-5">
+      <div class="container d-flex justify-content-between align-items-start">
+        <div>
+          <h1>🥏 Ultimate Tournament Results</h1>
+          <p class="lead mb-1">
+            Historic archive of ultimate tournament results, recorded using the
+            Live! by BULA API.
+          </p>
+          <a
+            class="btn btn-outline-secondary btn-sm mt-2"
+            href="https://github.com/cxd309/ultimate-tournament-results"
+          >
+            View on GitHub
+          </a>
+        </div>
+        <button
+          id="theme-toggle"
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          aria-label="Toggle light/dark theme"
+        >
+        </button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="mb-5">
+        <h2>Why?</h2>
+        <p>
+          <a href="https://github.com/layoutd/live-by-bula">Live! by BULA</a>
+          is the public results platform used by recent WFDF, EUC and BULA
+          events. It serves an API to provide dynamic data for the frontend as
+          cached JSON files. However, this data is not guaranteed to be hosted
+          forever.
+        </p>
+
+        <p>
+          This project aims to provide a long term archive of tournament
+          statistics for the general use of ultimate data enthusiasts.
+        </p>
+
+        <h2>How?</h2>
+        <p>
+          This project includes a GO based tool that fetches data from a Live!
+          deployment and attempts to recreate the underlying database from the
+          available information in a sqlite archive file (archive). It can then
+          recreate the JSON files for the API and serves them with GitHub Pages
+          (publish).
+        </p>
+
+        <p>
+          This should mean that any applications/tools designed to work with a
+          current Live! API should continue to work if redirected to this
+          archive as a drop-in replacement.
+        </p>
+
+        <p>
+          It also provides a second usage method of direct sqlite access. This
+          would probably be more useful for those who want to run some data
+          analytics.
+        </p>
+      </section>
+
+      <section>
+        <h2>Archived tournaments</h2>
+        <p class="text-body-secondary">
+          Generated from
+          <a href="tournaments.csv"><code>tournaments.csv</code></a>
+        </p>
+
+        <div class="table-responsive">
+          <table class="table table-striped table-hover align-middle">
+            <thead>
+              <tr>
+                <th scope="col">Event</th>
+                <th scope="col">Date</th>
+                <th scope="col">Host</th>
+                <th scope="col">Version</th>
+                <th scope="col">Archive</th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody id="tournaments-body">
+              <tr>
+                <td colspan="6" class="text-body-secondary">Loading&hellip;</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="tournaments-status" class="text-danger"></p>
+      </section>
+    </main>
+
+    <footer class="container text-body-secondary small">
+      <hr />
+      <p>
+        Data archived and published by
+        <a href="https://github.com/cxd309/ultimate-tournament-results"
+        >cxd309/ultimate-tournament-results</a>. Not affiliated with WFDF, EUF,
+        BULA or Live! by BULA.
+      </p>
+    </footer>
+  </body>
+</html>
