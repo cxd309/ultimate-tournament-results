@@ -7,6 +7,7 @@ check-deps:
     dprint --version
     pg_format --version
     sqlc version
+    simple-file-server --version
     @echo "If you can read this and nothing is obviously wrong"
     @echo "All dependencies are probably found"
 
@@ -30,4 +31,7 @@ clean:
 build: clean fmt
     mkdir -p {{ dist_dir }}
     go build -o {{ dist_dir }}/utr ./cmd/utr
- 
+
+# ── Serve: emulate GitHub Pages locally at /ultimate-tournament-results/ ──────
+serve: index
+    simple-file-server ./docs 8080 ultimate-tournament-results
