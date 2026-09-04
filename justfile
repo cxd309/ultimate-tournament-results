@@ -7,11 +7,12 @@ check-deps:
     dprint --version
     pg_format --version
     sqlc version
+    simple-file-server --version
     @echo "If you can read this and nothing is obviously wrong"
     @echo "All dependencies are probably found"
 
 # ── Format: dprint, shfmt, pg_format ─────────────────────────────────────────
-fmt:
+fmt: index
     go mod tidy
     gofmt -w .
     golangci-lint run
@@ -26,8 +27,15 @@ dbgen: fmt
 clean:
     rm -rf {{ dist_dir }}
 
+# ── Index: regenerate README table + docs/tournaments.csv from tournaments.csv ─
+index:
+    go run ./cmd/gensite
+
 # ── Build: compile cmd/utr into {{ dist_dir }}/utr ────────────────────────────
 build: clean fmt
     mkdir -p {{ dist_dir }}
     go build -o {{ dist_dir }}/utr ./cmd/utr
- 
+
+# ── Serve: emulate GitHub Pages locally at /ultimate-tournament-results/ ──────
+serve: index
+    simple-file-server ./docs 8080 ultimate-tournament-results
