@@ -83,6 +83,7 @@ do not edit this table by hand, edit the csv and regenerate instead
 | WJUC 2026         | 2026-07-11 | `wjuc.wfdf.sport`                     | `v1.9.14` (`v1.9.17`)         |                                     | [`wjuc2026`](docs/archive/wjuc2026/)   |       |
 | EYUC U17 2026     | 2026-08-03 | `eyuc-schedule.ultimatefederation.eu` | `v1.9.14` (`v1.9.17`)         |                                     | [`26EYUCVIE`](docs/archive/26EYUCVIE/) |       |
 | WUCC 2026         | 2026-08-15 | `results.wfdf.sport/wucc-2026`        | `v3.0.6`                      |                                     | [`WUCC2026`](docs/archive/WUCC2026/)   |       |
+| UK Nats 2026      | 2026-09-05 | `uku-schedule.ultimatefederation.eu`  | `v1.7.8` (`v1.9.14`)          |                                     | [`26UKUNATS`](docs/archive/26UKUNATS/) |       |
 
 <!-- tournaments:end -->
 
