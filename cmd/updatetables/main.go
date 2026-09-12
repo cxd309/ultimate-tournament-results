@@ -1,4 +1,4 @@
-// Command gensite regenerates the README table and docs/tournaments.csv
+// Command updatetables regenerates the README table and docs/tournaments.csv
 // from tournaments.csv
 // tournaments.csv is hand-maintained, everything it produces is not
 // run via `just index`
@@ -11,7 +11,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "gensite:", err)
+		fmt.Fprintln(os.Stderr, "updatetables:", err)
 		os.Exit(1)
 	}
 }

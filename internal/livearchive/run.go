@@ -99,7 +99,7 @@ func Run[S any](ctx context.Context, deps Deps[S], host, basePath, slug, dbPath 
 	if err != nil {
 		return Summary{}, fmt.Errorf("create %s: %w", dbPath, err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	if _, err := sqlDB.Exec(string(schema)); err != nil {
 		return Summary{}, fmt.Errorf("apply schema: %w", err)

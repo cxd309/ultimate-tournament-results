@@ -47,7 +47,7 @@ Where multiple Live! versions have very similar response and schema shapes they 
 | `internal/liveversion/`   | registry mapping a -version flag value to that version's Archive/Publish entrypoints |
 | `internal/convert`        | type conversion helpers                                                              |
 | `cmd/utr/`                | the single CLI tool                                                                  |
-| `cmd/gensite/`            | writes tournament info to readme and homepage from `tournaments.csv`                 |
+| `cmd/updatetables/`       | writes tournament info to readme and homepage from `tournaments.csv`                 |
 | `data/`                   | data archive, one sqlite .db file per tournament                                     |
 | `docs/`                   | GitHub Pages web root                                                                |
 | `docs/index.html`         | homepage                                                                             |
@@ -105,7 +105,7 @@ to confirm they're all on `PATH`
 
 | Tool                                                               | Used for                                                                           |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| [Go](https://go.dev/dl/) 1.26+                                     | building/running `cmd/utr`, `cmd/gensite`, `gofmt`                                 |
+| [Go](https://go.dev/dl/) 1.26+                                     | building/running `cmd/utr`, `cmd/updatetables`, `gofmt`                            |
 | [just](https://github.com/casey/just)                              | running the recipes below                                                          |
 | [golangci-lint](https://golangci-lint.run/)                        | `just fmt`                                                                         |
 | [dprint](https://dprint.dev/)                                      | `just fmt`, formats markdown/json/toml/yaml                                        |

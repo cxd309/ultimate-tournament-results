@@ -23,7 +23,7 @@ func Publish(ctx context.Context, dbPath, outDir string) error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", dbPath, err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	fmt.Printf("loading %s...\n", dbPath)
 	data, err := load(ctx, store.New(db))

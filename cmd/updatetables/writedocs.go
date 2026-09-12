@@ -8,12 +8,16 @@ import (
 
 // WriteDocsCSV writes a copy of tournaments for homepage
 // re-derived from the parsed rows
-func WriteDocsCSV(tournaments []Tournament, path string) error {
+func WriteDocsCSV(tournaments []Tournament, path string) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("close %s: %w", path, cerr)
+		}
+	}()
 
 	w := csv.NewWriter(f)
 	if err := w.Write(csvHeader); err != nil {

@@ -29,7 +29,7 @@ clean:
 
 # ── Index: regenerate README table + docs/tournaments.csv from tournaments.csv ─
 index:
-    go run ./cmd/gensite
+    go run ./cmd/updatetables
 
 # ── Build: compile cmd/utr into {{ dist_dir }}/utr ────────────────────────────
 build: clean fmt

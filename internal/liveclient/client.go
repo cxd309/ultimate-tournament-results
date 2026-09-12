@@ -66,7 +66,7 @@ func (c *Client) GetJSON(ctx context.Context, name string, out any) error {
 	if err != nil {
 		return fmt.Errorf("fetch %s: %w", name, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("fetch %s: unexpected status %s from %s", name, resp.Status, url)
