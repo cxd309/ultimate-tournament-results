@@ -2,10 +2,12 @@
 package livepublish
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/cxd309/ultimate-tournament-results/internal/liveclient"
 	livepublish "github.com/cxd309/ultimate-tournament-results/internal/livepublish"
@@ -84,6 +86,7 @@ type tournamentData struct {
 
 	locationByID          map[int64]store.Location
 	poolByID              map[int64]store.Pool
+	teamByID              map[int64]store.Team
 	playersByTeam         map[int64][]store.Player
 	schedulingNameByID    map[int64]store.SchedulingName
 	goalsByGame           map[int64][]store.Goal
@@ -91,6 +94,7 @@ type tournamentData struct {
 	spiritCommentsByGame  map[int64]map[int64]string // game -> team -> comment
 	poolsByGame           map[int64][]store.GamePool // from game_pools: every pool a game belongs to, with which one owns it
 	spiritCategoryKeyByID map[int64]string           // category_id -> "catN", from Ordering
+	gamesByTime           []store.Game               // games in start-time order, the order team spirit is listed in
 }
 
 func load(ctx context.Context, s *store.Store) (*tournamentData, error) {
@@ -173,6 +177,7 @@ func load(ctx context.Context, s *store.Store) (*tournamentData, error) {
 
 		locationByID:          make(map[int64]store.Location, len(locations)),
 		poolByID:              make(map[int64]store.Pool, len(pools)),
+		teamByID:              make(map[int64]store.Team, len(teams)),
 		playersByTeam:         make(map[int64][]store.Player, len(teams)),
 		schedulingNameByID:    make(map[int64]store.SchedulingName, len(schedulingNames)),
 		goalsByGame:           make(map[int64][]store.Goal, len(games)),
@@ -186,6 +191,9 @@ func load(ctx context.Context, s *store.Store) (*tournamentData, error) {
 	}
 	for _, p := range pools {
 		data.poolByID[p.PoolID] = p
+	}
+	for _, t := range teams {
+		data.teamByID[t.TeamID] = t
 	}
 	for _, p := range players {
 		data.playersByTeam[p.Team] = append(data.playersByTeam[p.Team], p)
@@ -211,6 +219,11 @@ func load(ctx context.Context, s *store.Store) (*tournamentData, error) {
 	for _, cat := range spiritCategories {
 		data.spiritCategoryKeyByID[cat.CategoryID] = fmt.Sprintf("cat%d", cat.Ordering)
 	}
+
+	data.gamesByTime = slices.Clone(games)
+	slices.SortStableFunc(data.gamesByTime, func(a, b store.Game) int {
+		return cmp.Or(cmp.Compare(a.Time, b.Time), cmp.Compare(a.GameID, b.GameID))
+	})
 
 	return data, nil
 }

@@ -3,10 +3,13 @@ package livepublish
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
 	livedatamodel "github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v01_09_14"
+	livepublish "github.com/cxd309/ultimate-tournament-results/internal/livepublish"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
 
@@ -224,20 +227,198 @@ func renderTeamDetail(data *tournamentData, team store.Team) livedatamodel.TeamD
 			Games:     p.GamesPlayed,
 		}
 	}
-	return livedatamodel.TeamDetailResponse{
+	detail := livedatamodel.TeamDetailResponse{
 		TeamID:  team.TeamID,
 		Pool:    convert.Int64OrZero(team.Pool),
 		Valid:   team.Valid,
 		Players: stats,
 	}
+	if len(data.spiritScoresByGame) > 0 {
+		renderTeamSpirit(data, team, &detail)
+	}
+	return detail
 }
 
-func renderGames(data *tournamentData) livedatamodel.GamesResponse {
-	games := make([]livedatamodel.GameListEntry, len(data.games))
-	for i, g := range data.games {
-		games[i] = livedatamodel.GameListEntry{GameID: g.GameID}
+// renderTeamSpirit fills a team's spiritgiven/spiritreceived and their totals
+// only sent when the event publishes spirit points (season.spirit), same as live
+//
+// spirit_scores is keyed by recipient: the row for this team is what it
+// received, the opponent's row in the same game is what it gave
+// one entry per game with a score, in game time order
+func renderTeamSpirit(data *tournamentData, team store.Team, detail *livedatamodel.TeamDetailResponse) {
+	given := make([]livedatamodel.TeamSpiritGame, 0)
+	received := make([]livedatamodel.TeamSpiritGame, 0)
+	// spiritstats/spirittotal only count games where both teams submitted,
+	// unlike the arrays, which list each direction on its own
+	var games, total int64
+	for _, g := range data.gamesByTime {
+		opponent, ok := opponentOf(g, team.TeamID)
+		if !ok {
+			continue
+		}
+		opponentName := data.teamByID[opponent].Name
+		var gave, got *livedatamodel.TeamSpiritGame
+		for _, sc := range data.spiritScoresByGame[g.GameID] {
+			entry := teamSpiritGame(sc)
+			switch sc.TeamID {
+			case team.TeamID:
+				entry.Givenby = opponentName
+				got = &entry
+			case opponent:
+				entry.Givento = opponentName
+				gave = &entry
+			}
+		}
+		if gave != nil {
+			given = append(given, *gave)
+		}
+		if got != nil {
+			received = append(received, *got)
+		}
+		if gave != nil && got != nil {
+			games++
+			total += got.Total
+		}
 	}
-	return livedatamodel.GamesResponse{Games: games}
+	detail.SpiritGiven = given
+	detail.SpiritReceived = received
+	detail.SpiritStats = &livedatamodel.TeamSpiritStats{Games: games}
+	detail.SpiritTotal = &livedatamodel.TeamSpiritTotal{Total: total}
+}
+
+func teamSpiritGame(sc store.SpiritScore) livedatamodel.TeamSpiritGame {
+	entry := livedatamodel.TeamSpiritGame{
+		GameID: sc.GameID,
+		Cat1:   sc.Cat1,
+		Cat2:   sc.Cat2,
+		Cat3:   sc.Cat3,
+		Cat4:   sc.Cat4,
+		Cat5:   sc.Cat5,
+		Total:  sc.Cat1 + sc.Cat2 + sc.Cat3 + sc.Cat4 + sc.Cat5,
+	}
+	if sc.Comments != "" {
+		entry.Comments = &sc.Comments
+	}
+	return entry
+}
+
+// opponentOf is the other team in a game teamID played in
+// false when teamID didn't play in it, or the other slot is unresolved
+func opponentOf(g store.Game, teamID int64) (int64, bool) {
+	switch {
+	case g.Hometeam != nil && *g.Hometeam == teamID && g.Visitorteam != nil:
+		return *g.Visitorteam, true
+	case g.Visitorteam != nil && *g.Visitorteam == teamID && g.Hometeam != nil:
+		return *g.Hometeam, true
+	default:
+		return 0, false
+	}
+}
+
+// renderGames rebuilds the games list, following the live endpoint's own rules:
+// every falsy value stripped (see livedatamodel.Game), scores restored to 0 for
+// any game that isn't scheduled, and time_utc only on 1.9.17+
+func renderGames(data *tournamentData) livedatamodel.GamesListResponse {
+	withTimeUTC := sendsTimeUTC(data.tournament.AppVersion)
+	games := make([]livedatamodel.Game, len(data.games))
+	for i, g := range data.games {
+		status := gameStatus(g)
+		entry := livedatamodel.Game{
+			GameID:                g.GameID,
+			Hometeam:              convert.Int64OrZero(g.Hometeam),
+			Visitorteam:           convert.Int64OrZero(g.Visitorteam),
+			Homescore:             listScore(g.Homescore, status),
+			Visitorscore:          listScore(g.Visitorscore, status),
+			Reservation:           convert.Int64OrZero(g.Reservation),
+			Time:                  g.Time,
+			Pool:                  convert.Int64OrZero(g.Pool),
+			Valid:                 g.Valid,
+			Halftime:              convert.Int64OrZero(g.Halftime),
+			Visitorsotg:           convert.Int64OrZero(g.Visitorsotg),
+			Isongoing:             g.Isongoing,
+			SchedulingNameHome:    convert.Int64OrZero(g.SchedulingNameHome),
+			SchedulingNameVisitor: convert.Int64OrZero(g.SchedulingNameVisitor),
+			Timeslot:              convert.Int64OrZero(g.Timeslot),
+			Homedefenses:          convert.Int64OrZero(g.Homedefenses),
+			Visitordefenses:       convert.Int64OrZero(g.Visitordefenses),
+			Islive:                convert.Int64OrZero(g.Islive),
+			// the archive doesn't distinguish "" from NULL, so an empty liveurl
+			// is stripped like a null one rather than guessed back to ""
+			Liveurl:               g.Liveurl,
+			Gamename:              data.schedulingName(g.Name),
+			Gameschedulingname:    data.schedulingName(g.Name),
+			Homeschedulingname:    data.schedulingName(g.SchedulingNameHome),
+			Visitorschedulingname: data.schedulingName(g.SchedulingNameVisitor),
+			Status:                status,
+		}
+		if g.Name != nil && *g.Name != 0 {
+			entry.Name = strconv.FormatInt(*g.Name, 10)
+		}
+		if withTimeUTC {
+			entry.TimeUTC = livepublish.TimeUTC(g.Time, data.tournament.Timezone)
+		}
+		games[i] = entry
+	}
+	return livedatamodel.GamesListResponse{Games: games}
+}
+
+// gameStatus derives a game's status the way 1.9 does:
+// ongoing when flagged live, completed once either score is above zero,
+// scheduled otherwise -- so a finished 0-0 stays scheduled
+func gameStatus(g store.Game) string {
+	switch {
+	case bool(g.Isongoing):
+		return "ongoing"
+	case convert.Int64OrZero(g.Homescore) > 0 || convert.Int64OrZero(g.Visitorscore) > 0:
+		return "completed"
+	default:
+		return "scheduled"
+	}
+}
+
+// listScore is a games-list score: stripped when falsy, except restored to 0
+// for any game that isn't scheduled
+func listScore(score *int64, status string) *int64 {
+	value := convert.Int64OrZero(score)
+	if value == 0 && status == "scheduled" {
+		return nil
+	}
+	return &value
+}
+
+// sendsTimeUTC reports whether this deployment's games list carries time_utc,
+// new in 1.9.17
+// app_version is whatever the heartbeat reported, which isn't always a
+// release number (e.g. "dev", a build timestamp); anything unparseable is
+// treated as pre-1.9.17 rather than guessed
+func sendsTimeUTC(appVersion string) bool {
+	parts := strings.Split(strings.TrimPrefix(appVersion, "v"), ".")
+	if len(parts) != 3 {
+		return false
+	}
+	version := [3]int{}
+	for i, p := range parts {
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return false
+		}
+		version[i] = n
+	}
+	for i, want := range [3]int{1, 9, 17} {
+		if version[i] != want {
+			return version[i] > want
+		}
+	}
+	return true
+}
+
+// schedulingName resolves a scheduling-name id to its display text
+// "" for no id, or one this archive has no row for
+func (data *tournamentData) schedulingName(id *int64) string {
+	if id == nil {
+		return ""
+	}
+	return data.schedulingNameByID[*id].Name
 }
 
 func renderGameDetail(data *tournamentData, game store.Game) livedatamodel.GameDetailResponse {

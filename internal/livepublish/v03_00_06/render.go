@@ -2,11 +2,15 @@ package livepublish
 
 import (
 	"fmt"
+	"slices"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
 	livedatamodel "github.com/cxd309/ultimate-tournament-results/internal/livedatamodel/v03_00_06"
+	livepublish "github.com/cxd309/ultimate-tournament-results/internal/livepublish"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v03_00_06"
 )
 
@@ -274,21 +278,203 @@ func renderTeamDetail(data *tournamentData, team store.Team) livedatamodel.TeamD
 	if team.ClubName != "" {
 		clubname = &team.ClubName
 	}
-	return livedatamodel.TeamDetailResponse{
+	detail := livedatamodel.TeamDetailResponse{
 		TeamID:   team.TeamID,
 		Pool:     convert.Int64OrZero(team.Pool),
 		Valid:    team.Valid,
 		Players:  stats,
 		Clubname: clubname,
 	}
+	if len(data.spiritScoresByGame) > 0 {
+		renderTeamSpirit(data, team, &detail)
+	}
+	return detail
 }
 
-func renderGames(data *tournamentData) livedatamodel.GamesResponse {
-	games := make([]livedatamodel.GameListEntry, len(data.games))
-	for i, g := range data.games {
-		games[i] = livedatamodel.GameListEntry{GameID: g.GameID}
+// renderTeamSpirit fills a team's spiritgiven/spiritreceived and their totals
+// only sent when the event publishes spirit points (season.spirit), same as live
+//
+// 3.0 only lists a game once both teams have submitted and it's cleared for
+// display (show_spirit), so a game missing either side's score is skipped in
+// both arrays, not just the one it's missing from
+//
+// spirit_scores is keyed by recipient: the rows for this team are what it
+// received, the opponent's rows in the same game are what it gave
+// one entry per game, in game time order
+func renderTeamSpirit(data *tournamentData, team store.Team, detail *livedatamodel.TeamDetailResponse) {
+	given := make([]livedatamodel.TeamSpiritGame, 0)
+	received := make([]livedatamodel.TeamSpiritGame, 0)
+	var total float64
+	for _, g := range data.gamesByTime {
+		opponent, ok := opponentOf(g, team.TeamID)
+		if !ok || !bool(g.ShowSpirit) {
+			continue
+		}
+		receivedScore, ok := teamSpiritGame(data, g, team.TeamID)
+		if !ok {
+			continue
+		}
+		givenScore, ok := teamSpiritGame(data, g, opponent)
+		if !ok {
+			continue
+		}
+		opponentName := data.teamByID[opponent].Name
+		for _, entry := range []*livedatamodel.TeamSpiritGame{&receivedScore, &givenScore} {
+			entry.Givenby = opponentName
+			entry.Givento = opponentName
+		}
+		received = append(received, receivedScore)
+		given = append(given, givenScore)
+		total += float64(receivedScore.Total)
 	}
-	return livedatamodel.GamesResponse{Games: games}
+	detail.SpiritGiven = given
+	detail.SpiritReceived = received
+	detail.SpiritStats = &livedatamodel.TeamSpiritStats{Games: int64(len(received))}
+	detail.SpiritTotal = &livedatamodel.TeamSpiritTotal{Total: total}
+}
+
+// teamSpiritGame builds the spirit score recipient received in game g
+// false unless every category has a visible (non-null) score
+func teamSpiritGame(data *tournamentData, g store.Game, recipient int64) (livedatamodel.TeamSpiritGame, bool) {
+	entry := livedatamodel.TeamSpiritGame{
+		GameID:     g.GameID,
+		Time:       g.Time,
+		Spiritmode: data.tournament.Spiritmode,
+		IsComplete: true,
+		IsVisible:  true,
+		Categories: make(map[string]int64),
+	}
+	for _, sc := range data.spiritScoresByGame[g.GameID] {
+		if sc.TeamID != recipient {
+			continue
+		}
+		if sc.Value == nil {
+			return entry, false
+		}
+		entry.Categories[data.spiritCategoryKeyByID[sc.CategoryID]] = *sc.Value
+		entry.Total += *sc.Value
+	}
+	if len(entry.Categories) == 0 {
+		return entry, false
+	}
+	if comment, ok := data.spiritCommentsByGame[g.GameID][recipient]; ok {
+		entry.Comments = &comment
+	}
+	return entry, true
+}
+
+// opponentOf is the other team in a game teamID played in
+// false when teamID didn't play in it, or the other slot is unresolved
+func opponentOf(g store.Game, teamID int64) (int64, bool) {
+	switch {
+	case g.Hometeam != nil && *g.Hometeam == teamID && g.Visitorteam != nil:
+		return *g.Visitorteam, true
+	case g.Visitorteam != nil && *g.Visitorteam == teamID && g.Hometeam != nil:
+		return *g.Hometeam, true
+	default:
+		return 0, false
+	}
+}
+
+// renderGames rebuilds the games list, following the live endpoint's own rules:
+// every falsy value stripped (see livedatamodel.Game) and scores restored to 0
+// for any game that isn't scheduled
+func renderGames(data *tournamentData) livedatamodel.GamesListResponse {
+	games := make([]livedatamodel.Game, len(data.games))
+	for i, g := range data.games {
+		status := gameStatus(g)
+		entry := livedatamodel.Game{
+			GameID:                g.GameID,
+			Hometeam:              convert.Int64OrZero(g.Hometeam),
+			Visitorteam:           convert.Int64OrZero(g.Visitorteam),
+			Homescore:             listScore(g.Homescore, status),
+			Visitorscore:          listScore(g.Visitorscore, status),
+			Reservation:           convert.Int64OrZero(g.Reservation),
+			Time:                  g.Time,
+			Valid:                 g.Valid,
+			Halftime:              convert.Int64OrZero(g.Halftime),
+			Isongoing:             g.Isongoing,
+			SchedulingNameHome:    convert.Int64OrZero(g.SchedulingNameHome),
+			SchedulingNameVisitor: convert.Int64OrZero(g.SchedulingNameVisitor),
+			Timeslot:              convert.Int64OrZero(g.Timeslot),
+			Homedefenses:          convert.Int64OrZero(g.Homedefenses),
+			Visitordefenses:       convert.Int64OrZero(g.Visitordefenses),
+			Hasstarted:            convert.Int64OrZero(g.Hasstarted),
+			Islive:                g.Islive,
+			// the archive doesn't distinguish "" from NULL, so an empty liveurl
+			// is stripped like a null one rather than guessed back to ""
+			Liveurl:                   g.Liveurl,
+			ShowSpirit:                g.ShowSpirit,
+			TimerStart:                convert.Int64OrZero(g.TimerStart),
+			TimerPauseStart:           convert.Int64OrZero(g.TimerPauseStart),
+			TimerPausedDuration:       convert.Int64OrZero(g.TimerPausedDuration),
+			Forfeit:                   g.Forfeit,
+			Pool:                      convert.Int64OrZero(owningPool(data, g.GameID)),
+			Gamename:                  data.schedulingName(g.Name).Name,
+			Gameschedulingname:        data.schedulingName(g.Name).Name,
+			Homeschedulingname:        data.schedulingName(g.SchedulingNameHome).Name,
+			Visitorschedulingname:     data.schedulingName(g.SchedulingNameVisitor).Name,
+			HomeSchedulingFrompool:    convert.Int64OrZero(data.schedulingName(g.SchedulingNameHome).Frompool),
+			VisitorSchedulingFrompool: convert.Int64OrZero(data.schedulingName(g.SchedulingNameVisitor).Frompool),
+			Pools:                     gamePools(data, g.GameID),
+			Status:                    status,
+			TimeUTC:                   livepublish.TimeUTC(g.Time, data.tournament.Timezone),
+		}
+		if g.Name != nil && *g.Name != 0 {
+			entry.Name = strconv.FormatInt(*g.Name, 10)
+		}
+		games[i] = entry
+	}
+	return livedatamodel.GamesListResponse{Games: games}
+}
+
+// gameStatus derives a game's status the way 3.0 does, from hasstarted:
+// ongoing while flagged live, completed once started, scheduled otherwise
+// so 0-0 results and forfeits are completed, unlike 1.9
+func gameStatus(g store.Game) string {
+	switch {
+	case bool(g.Isongoing):
+		return "ongoing"
+	case convert.Int64OrZero(g.Hasstarted) > 0:
+		return "completed"
+	default:
+		return "scheduled"
+	}
+}
+
+// listScore is a games-list score: stripped when falsy, except restored to 0
+// for any game that isn't scheduled
+func listScore(score *int64, status string) *int64 {
+	value := convert.Int64OrZero(score)
+	if value == 0 && status == "scheduled" {
+		return nil
+	}
+	return &value
+}
+
+// gamePools is every pool a game belongs to, as the list's comma-separated,
+// de-duplicated, sorted string
+func gamePools(data *tournamentData, gameID int64) string {
+	ids := make([]int64, 0, len(data.poolsByGame[gameID]))
+	for _, gp := range data.poolsByGame[gameID] {
+		ids = append(ids, gp.PoolID)
+	}
+	slices.Sort(ids)
+	ids = slices.Compact(ids)
+	parts := make([]string, len(ids))
+	for i, id := range ids {
+		parts[i] = strconv.FormatInt(id, 10)
+	}
+	return strings.Join(parts, ",")
+}
+
+// schedulingName looks up a scheduling-name row by id
+// the zero value for no id, or one this archive has no row for
+func (data *tournamentData) schedulingName(id *int64) store.SchedulingName {
+	if id == nil {
+		return store.SchedulingName{}
+	}
+	return data.schedulingNameByID[*id]
 }
 
 func renderGameDetail(data *tournamentData, game store.Game) livedatamodel.GameDetailResponse {

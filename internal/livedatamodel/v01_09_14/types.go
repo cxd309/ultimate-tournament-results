@@ -128,12 +128,46 @@ type Reservation struct {
 // See openapi-1.9.14.yaml #/components/schemas/TeamDetailResponse
 //
 // Only the fields this archiver currently uses are modeled here
-// spirit given/received belongs to a later slice, not this one.
+// the spirit blocks are only ever rendered by publish, rebuilt from spirit_scores
+// they're omitted when the event doesn't publish spirit points (season.spirit 0)
 type TeamDetailResponse struct {
-	TeamID  int64           `json:"team_id"`
-	Pool    int64           `json:"pool"` // external pool id; 0 means not currently in a pool
-	Valid   convert.IntBool `json:"valid"`
-	Players []PlayerStats   `json:"players"`
+	TeamID         int64            `json:"team_id"`
+	Pool           int64            `json:"pool"` // external pool id; 0 means not currently in a pool
+	Valid          convert.IntBool  `json:"valid"`
+	Players        []PlayerStats    `json:"players"`
+	SpiritGiven    []TeamSpiritGame `json:"spiritgiven,omitempty"`
+	SpiritReceived []TeamSpiritGame `json:"spiritreceived,omitempty"`
+	SpiritStats    *TeamSpiritStats `json:"spiritstats,omitempty"`
+	SpiritTotal    *TeamSpiritTotal `json:"spirittotal,omitempty"`
+}
+
+// TeamSpiritGame is one entry in TeamDetailResponse.SpiritGiven/SpiritReceived
+// one game's spirit score, given or received depending on which array it's in
+// Givento is only sent in spiritgiven, Givenby only in spiritreceived
+// both name the opponent
+type TeamSpiritGame struct {
+	GameID   int64   `json:"game_id"`
+	Givento  string  `json:"givento,omitempty"`
+	Givenby  string  `json:"givenby,omitempty"`
+	Cat1     int64   `json:"cat1"`
+	Cat2     int64   `json:"cat2"`
+	Cat3     int64   `json:"cat3"`
+	Cat4     int64   `json:"cat4"`
+	Cat5     int64   `json:"cat5"`
+	Total    int64   `json:"total"`
+	Comments *string `json:"comments"` // null unless the event enables spirit comments
+}
+
+// TeamSpiritStats is TeamDetailResponse.SpiritStats
+// how many games contributed to the spirit figures
+type TeamSpiritStats struct {
+	Games int64 `json:"games"`
+}
+
+// TeamSpiritTotal is TeamDetailResponse.SpiritTotal
+// total spirit points received across the event
+type TeamSpiritTotal struct {
+	Total int64 `json:"total"`
 }
 
 // PlayerStats is one entry in TeamDetailResponse.Players
@@ -161,6 +195,52 @@ type GamesResponse struct {
 // only game_id is modeled: see GamesResponse
 type GameListEntry struct {
 	GameID int64 `json:"game_id"`
+}
+
+// GamesListResponse is the games-list endpoint as publish renders it
+// GamesResponse only decodes enough to enumerate game ids, this is the full shape
+// See openapi-1.9.14.yaml #/components/schemas/GamesResponse
+type GamesListResponse struct {
+	Games []Game `json:"games"`
+}
+
+// Game is one entry in GamesListResponse.Games
+// See openapi-1.9.14.yaml #/components/schemas/Game
+//
+// Every falsy value is stripped on this endpoint, hence omitempty throughout
+// official/homesotg/respteam/resppers are deliberately removed by the live API
+// Homescore/Visitorscore are pointers: restored to 0 for any game that isn't scheduled
+// TimeUTC is 1.9.17+ only, and is never stripped for being empty
+//
+// the live API selects the whole uo_game row, so an install with extra columns
+// (e.g. timer_start) sends those too; they aren't part of Live! and aren't archived
+type Game struct {
+	GameID                int64           `json:"game_id"`
+	Hometeam              int64           `json:"hometeam,omitempty"`
+	Visitorteam           int64           `json:"visitorteam,omitempty"`
+	Homescore             *int64          `json:"homescore,omitempty"`
+	Visitorscore          *int64          `json:"visitorscore,omitempty"`
+	Reservation           int64           `json:"reservation,omitempty"`
+	Time                  string          `json:"time,omitempty"`
+	Pool                  int64           `json:"pool,omitempty"`
+	Valid                 convert.IntBool `json:"valid,omitempty"`
+	Halftime              int64           `json:"halftime,omitempty"`
+	Visitorsotg           int64           `json:"visitorsotg,omitempty"`
+	Isongoing             convert.IntBool `json:"isongoing,omitempty"`
+	SchedulingNameHome    int64           `json:"scheduling_name_home,omitempty"`
+	SchedulingNameVisitor int64           `json:"scheduling_name_visitor,omitempty"`
+	Name                  string          `json:"name,omitempty"` // scheduling-name id, as a string
+	Timeslot              int64           `json:"timeslot,omitempty"`
+	Homedefenses          int64           `json:"homedefenses,omitempty"`
+	Visitordefenses       int64           `json:"visitordefenses,omitempty"`
+	Islive                int64           `json:"islive,omitempty"`
+	Liveurl               string          `json:"liveurl,omitempty"`
+	Gameschedulingname    string          `json:"gameschedulingname,omitempty"`
+	Homeschedulingname    string          `json:"homeschedulingname,omitempty"`
+	Visitorschedulingname string          `json:"visitorschedulingname,omitempty"`
+	Gamename              string          `json:"gamename,omitempty"`
+	Status                string          `json:"status"`
+	TimeUTC               string          `json:"time_utc,omitempty"`
 }
 
 // GameDetailResponse is the response of GET {basePath}{seasonId}_games_{gameId}.json

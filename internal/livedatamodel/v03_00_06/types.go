@@ -174,7 +174,8 @@ type Reservation struct {
 // See openapi-3.0.6.yaml #/components/schemas/TeamDetailResponse
 //
 // Only the fields this archiver currently uses are modeled here
-// spirit given/received belongs to a later slice, not this one.
+// the spirit blocks are only ever rendered by publish, rebuilt from spirit_scores
+// they're omitted when the event doesn't publish spirit points (season.spirit 0)
 type TeamDetailResponse struct {
 	TeamID  int64           `json:"team_id"`
 	Pool    int64           `json:"pool"` // external pool id; 0 means not currently in a pool
@@ -182,7 +183,64 @@ type TeamDetailResponse struct {
 	Players []PlayerStats   `json:"players"`
 	// Clubname is the resolved club-name text
 	// ReferenceResponce.Teams[].Club is the FK id
-	Clubname *string `json:"clubname"`
+	Clubname       *string          `json:"clubname"`
+	SpiritGiven    []TeamSpiritGame `json:"spiritgiven,omitempty"`
+	SpiritReceived []TeamSpiritGame `json:"spiritreceived,omitempty"`
+	SpiritStats    *TeamSpiritStats `json:"spiritstats,omitempty"`
+	SpiritTotal    *TeamSpiritTotal `json:"spirittotal,omitempty"`
+}
+
+// TeamSpiritGame is one entry in TeamDetailResponse.SpiritGiven/SpiritReceived
+// one game's spirit score, given or received depending on which array it's in
+// Givento and Givenby both name the opponent, in both arrays
+//
+// Rows only exist for games where both teams have submitted and the game is
+// cleared for publication, so IsComplete/IsVisible are always true in practice
+type TeamSpiritGame struct {
+	GameID     int64
+	Time       string
+	Spiritmode *int64
+	Givenby    string
+	Givento    string
+	Total      int64
+	Comments   *string // null unless the season enables spirit comments
+	IsComplete convert.IntBool
+	IsVisible  convert.IntBool
+	// Categories holds each category's score, keyed by its "catN" name (SpiritCategory.Key)
+	Categories map[string]int64
+}
+
+// MarshalJSON flattens Categories back to the live API's own shape
+// one key per category ("cat1", "cat2", ...) alongside the fixed fields
+func (g TeamSpiritGame) MarshalJSON() ([]byte, error) {
+	out := map[string]any{
+		"game_id":     g.GameID,
+		"time":        g.Time,
+		"spiritmode":  g.Spiritmode,
+		"givenby":     g.Givenby,
+		"givento":     g.Givento,
+		"total":       g.Total,
+		"comments":    g.Comments,
+		"is_complete": g.IsComplete,
+		"is_visible":  g.IsVisible,
+	}
+	for key, value := range g.Categories {
+		out[key] = value
+	}
+	return json.Marshal(out)
+}
+
+// TeamSpiritStats is TeamDetailResponse.SpiritStats
+// how many games contributed to the spirit figures
+type TeamSpiritStats struct {
+	Games int64 `json:"games"`
+}
+
+// TeamSpiritTotal is TeamDetailResponse.SpiritTotal
+// total spirit points received across the event
+// a number rather than an integer on 3.0, weighted categories can make it fractional
+type TeamSpiritTotal struct {
+	Total float64 `json:"total"`
 }
 
 // PlayerStats is one entry in TeamDetailResponse.Players
@@ -220,16 +278,6 @@ type GameListEntry struct {
 	VisitorSchedulingFrompool *int64
 }
 
-// MarshalJSON emits only game_id
-// pools/frompool are archived elsewhere (game_pools, scheduling_names)
-// this field only needs to enumerate ids, the other fields exist purely
-// to carry data through decode, not for publish to reconstruct
-func (g GameListEntry) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		GameID int64 `json:"game_id"`
-	}{GameID: g.GameID})
-}
-
 // GamesResponse.Games.Pools is sent as a comma-seperated, de-duplicted, sorted string
 // Unmarshall into a list of ints
 func (g *GameListEntry) UnmarshalJSON(data []byte) error {
@@ -256,6 +304,58 @@ func (g *GameListEntry) UnmarshalJSON(data []byte) error {
 		g.Pools = append(g.Pools, poolID)
 	}
 	return nil
+}
+
+// GamesListResponse is the games-list endpoint as publish renders it
+// GamesResponse only decodes what import needs, this is the full shape
+// See openapi-3.0.6.yaml #/components/schemas/GamesResponse
+type GamesListResponse struct {
+	Games []Game `json:"games"`
+}
+
+// Game is one entry in GamesListResponse.Games
+// See openapi-3.0.6.yaml #/components/schemas/Game
+//
+// Every falsy value is stripped on this endpoint, hence omitempty throughout
+// official/respteam/resppers are deliberately removed by the live API, and 3.0
+// sends neither team's spirit score here
+// Homescore/Visitorscore are pointers: restored to 0 for any game that isn't scheduled
+// TimeUTC is never stripped for being empty, only omitted with no time/timezone
+type Game struct {
+	GameID                    int64           `json:"game_id"`
+	Hometeam                  int64           `json:"hometeam,omitempty"`
+	Visitorteam               int64           `json:"visitorteam,omitempty"`
+	Homescore                 *int64          `json:"homescore,omitempty"`
+	Visitorscore              *int64          `json:"visitorscore,omitempty"`
+	Reservation               int64           `json:"reservation,omitempty"`
+	Time                      string          `json:"time,omitempty"`
+	Valid                     convert.IntBool `json:"valid,omitempty"`
+	Halftime                  int64           `json:"halftime,omitempty"`
+	Isongoing                 convert.IntBool `json:"isongoing,omitempty"`
+	SchedulingNameHome        int64           `json:"scheduling_name_home,omitempty"`
+	SchedulingNameVisitor     int64           `json:"scheduling_name_visitor,omitempty"`
+	Name                      string          `json:"name,omitempty"` // scheduling-name id, as a string
+	Timeslot                  int64           `json:"timeslot,omitempty"`
+	Homedefenses              int64           `json:"homedefenses,omitempty"`
+	Visitordefenses           int64           `json:"visitordefenses,omitempty"`
+	Hasstarted                int64           `json:"hasstarted,omitempty"`
+	Islive                    convert.IntBool `json:"islive,omitempty"`
+	Liveurl                   string          `json:"liveurl,omitempty"`
+	ShowSpirit                convert.IntBool `json:"show_spirit,omitempty"`
+	TimerStart                int64           `json:"timer_start,omitempty"`
+	TimerPauseStart           int64           `json:"timer_pause_start,omitempty"`
+	TimerPausedDuration       int64           `json:"timer_paused_duration,omitempty"`
+	Forfeit                   convert.IntBool `json:"forfeit,omitempty"`
+	Pool                      int64           `json:"pool,omitempty"` // the owning pool
+	Gameschedulingname        string          `json:"gameschedulingname,omitempty"`
+	Homeschedulingname        string          `json:"homeschedulingname,omitempty"`
+	Visitorschedulingname     string          `json:"visitorschedulingname,omitempty"`
+	Gamename                  string          `json:"gamename,omitempty"`
+	HomeSchedulingFrompool    int64           `json:"home_scheduling_frompool,omitempty"`
+	VisitorSchedulingFrompool int64           `json:"visitor_scheduling_frompool,omitempty"`
+	Pools                     string          `json:"pools,omitempty"` // every pool, comma-separated, sorted
+	Status                    string          `json:"status"`
+	TimeUTC                   string          `json:"time_utc,omitempty"`
 }
 
 // GameDetailResponse is the response of GET {basePath}{seasonId}_games_{gameId}.json
