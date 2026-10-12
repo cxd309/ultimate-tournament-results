@@ -18,7 +18,7 @@ This project aims to provide a long term archive of tournament statistics for th
 
    It then Publishes the archive to `docs/archive/<slug>/` to host static JSON under Live! APIs original filenames. This is then a drop in replacement for existing tools.
 
-2. **Add** the tournament to [`tournaments.csv`](tournaments.csv), then run `just fmt` to update readme and homepage.
+2. **Add** the tournament to [`tournaments.csv`](tournaments.csv), then run `just fmt` to update readme and homepage. Set `live` to `y` while the original deployment still serves the tournament so the host links to it, and blank it once it's gone.
 
 Team photos and other media event links are not currently archived at all.
 
@@ -68,22 +68,22 @@ do not edit this table by hand, edit the csv and regenerate instead
 
 <!-- tournaments:start -->
 
-| Event             | Date       | Host                                  | Version                       | [Legacy flags](#legacy-deployments) | Archive                                | Notes |
-| ----------------- | ---------- | ------------------------------------- | ----------------------------- | ----------------------------------- | -------------------------------------- | ----- |
-| EBUCC 2023        | 2023-06-09 | `live.ebucc.eu`                       | `v1.9.14` (`20250612.082841`) | `-unprefixed`                       | [`EBUCC2023`](docs/archive/EBUCC2023/) |       |
-| WBUCC 2024        | 2024-10-14 | `live.wbucc.org`                      | `v1.9.14`                     | `-season-id` `-unprefixed`          | [`wbucc2024`](docs/archive/wbucc2024/) |       |
-| EBUCC 2025        | 2025-06-06 | `live.ebucc.eu`                       | `v1.9.14` (`20250612.082841`) | `-unprefixed`                       | [`ebucc2025`](docs/archive/ebucc2025/) |       |
-| WWUC 2025         | 2025-09-18 | `results.wfdf.sport/wwuc`             | `v1.9.14` (`dev`)             |                                     | [`WWUC2025`](docs/archive/WWUC2025/)   |       |
-| EUCF 2025         | 2025-09-26 | `eucf.ultimatefederation.eu`          | `v1.9.14` (`v1.8.2`)          | `-season-id`                        | [`e2cf25`](docs/archive/e2cf25/)       |       |
-| WBUC 2025         | 2025-11-16 | `wbuc.wfdf.sport`                     | `v1.9.14`                     |                                     | [`wbuc2025`](docs/archive/wbuc2025/)   |       |
-| PAUC 2025         | 2025-12-01 | `results.pauc.sport`                  | `v1.9.14` (`v1.9.15`)         |                                     | [`pauc2025`](docs/archive/pauc2025/)   |       |
-| EUIC 2026         | 2026-01-29 | `euic-schedule.ultimatefederation.eu` | `v1.9.14` (`v1.9.16`)         |                                     | [`euic2026`](docs/archive/euic2026/)   |       |
-| Elite Invite 2026 | 2026-05-23 | `elite-invite.ultimatefederation.eu`  | `v1.9.14` (`v1.9.17`)         |                                     | [`26ELITLEU`](docs/archive/26ELITLEU/) |       |
-| WMUCC 2026        | 2026-06-28 | `wmucc.wfdf.sport`                    | `v1.9.14` (`v1.9.17`)         |                                     | [`wmucc2026`](docs/archive/wmucc2026/) |       |
-| WJUC 2026         | 2026-07-11 | `wjuc.wfdf.sport`                     | `v1.9.14` (`v1.9.17`)         |                                     | [`wjuc2026`](docs/archive/wjuc2026/)   |       |
-| EYUC U17 2026     | 2026-08-03 | `eyuc-schedule.ultimatefederation.eu` | `v1.9.14` (`v1.9.17`)         |                                     | [`26EYUCVIE`](docs/archive/26EYUCVIE/) |       |
-| WUCC 2026         | 2026-08-15 | `results.wfdf.sport/wucc-2026`        | `v3.0.6`                      |                                     | [`WUCC2026`](docs/archive/WUCC2026/)   |       |
-| UK Nats 2026      | 2026-09-05 | `uku-schedule.ultimatefederation.eu`  | `v1.7.8` (`v1.9.14`)          |                                     | [`26UKUNATS`](docs/archive/26UKUNATS/) |       |
+| Event | Date | Host | Version | [Legacy flags](#legacy-deployments) | Archive | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| EBUCC 2023 | 2023-06-09 | `live.ebucc.eu` | `v1.9.14` (`20250612.082841`) | `-unprefixed` | [`EBUCC2023`](docs/archive/EBUCC2023/) |  |
+| WBUCC 2024 | 2024-10-14 | [`live.wbucc.org`](https://live.wbucc.org/) | `v1.9.14` | `-season-id` `-unprefixed` | [`wbucc2024`](docs/archive/wbucc2024/) |  |
+| EBUCC 2025 | 2025-06-06 | `live.ebucc.eu` | `v1.9.14` (`20250612.082841`) | `-unprefixed` | [`ebucc2025`](docs/archive/ebucc2025/) |  |
+| WWUC 2025 | 2025-09-18 | [`results.wfdf.sport/wwuc`](https://results.wfdf.sport/wwuc/) | `v1.9.14` (`dev`) |  | [`WWUC2025`](docs/archive/WWUC2025/) |  |
+| EUCF 2025 | 2025-09-26 | `eucf.ultimatefederation.eu` | `v1.9.14` (`v1.8.2`) | `-season-id` | [`e2cf25`](docs/archive/e2cf25/) |  |
+| WBUC 2025 | 2025-11-16 | `wbuc.wfdf.sport` | `v1.9.14` |  | [`wbuc2025`](docs/archive/wbuc2025/) |  |
+| PAUC 2025 | 2025-12-01 | `results.pauc.sport` | `v1.9.14` (`v1.9.15`) |  | [`pauc2025`](docs/archive/pauc2025/) |  |
+| EUIC 2026 | 2026-01-29 | [`euic-schedule.ultimatefederation.eu`](https://euic-schedule.ultimatefederation.eu/) | `v1.9.14` (`v1.9.16`) |  | [`euic2026`](docs/archive/euic2026/) |  |
+| Elite Invite 2026 | 2026-05-23 | [`elite-invite.ultimatefederation.eu`](https://elite-invite.ultimatefederation.eu/) | `v1.9.14` (`v1.9.17`) |  | [`26ELITLEU`](docs/archive/26ELITLEU/) |  |
+| WMUCC 2026 | 2026-06-28 | `wmucc.wfdf.sport` | `v1.9.14` (`v1.9.17`) |  | [`wmucc2026`](docs/archive/wmucc2026/) |  |
+| WJUC 2026 | 2026-07-11 | `wjuc.wfdf.sport` | `v1.9.14` (`v1.9.17`) |  | [`wjuc2026`](docs/archive/wjuc2026/) |  |
+| EYUC U17 2026 | 2026-08-03 | [`eyuc-schedule.ultimatefederation.eu`](https://eyuc-schedule.ultimatefederation.eu/) | `v1.9.14` (`v1.9.17`) |  | [`26EYUCVIE`](docs/archive/26EYUCVIE/) |  |
+| WUCC 2026 | 2026-08-15 | [`results.wfdf.sport/wucc-2026`](https://results.wfdf.sport/wucc-2026/) | `v3.0.6` |  | [`WUCC2026`](docs/archive/WUCC2026/) |  |
+| UK Nats 2026 | 2026-09-05 | [`uku-schedule.ultimatefederation.eu`](https://uku-schedule.ultimatefederation.eu/) | `v1.7.8` (`v1.9.14`) |  | [`26UKUNATS`](docs/archive/26UKUNATS/) |  |
 
 <!-- tournaments:end -->
 

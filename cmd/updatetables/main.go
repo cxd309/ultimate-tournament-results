@@ -40,6 +40,7 @@ type Tournament struct {
 	Event           string
 	StartDate       string
 	Host            string
+	Live            bool   // original deployment still serves this tournament, "y" in csv
 	Version         string // -version flag tournament was archived with
 	OriginalVersion string // app_version depolyment reported
 	LegacyFlags     string // blank normally otherwise flags
@@ -49,4 +50,4 @@ type Tournament struct {
 // csvHeader is written to docs/tournaments.csv
 // and checked against tournaments.csv
 // keep in sync with the Tournament struct field order
-var csvHeader = []string{"slug", "event", "start_date", "host", "version", "original_version", "legacy_flags", "notes"}
+var csvHeader = []string{"slug", "event", "start_date", "host", "live", "version", "original_version", "legacy_flags", "notes"}

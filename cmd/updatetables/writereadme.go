@@ -59,7 +59,7 @@ func renderReadmeTable(tournaments []Tournament) string {
 		writeRow([]string{
 			t.Event,
 			t.StartDate,
-			"`" + t.Host + "`",
+			hostCell(t.Host, t.Live),
 			formatVersion(t.Version, t.OriginalVersion),
 			legacyCell(t.LegacyFlags),
 			fmt.Sprintf("[`%s`](docs/archive/%s/)", t.Slug, t.Slug),
@@ -68,6 +68,15 @@ func renderReadmeTable(tournaments []Tournament) string {
 	}
 
 	return b.String()
+}
+
+// hostCell renders a tournament's host as a code span
+// linked to the original deployment while it's still live
+func hostCell(host string, live bool) string {
+	if !live {
+		return "`" + host + "`"
+	}
+	return fmt.Sprintf("[`%s`](https://%s/)", host, host)
 }
 
 // legacyCell renders a tournament's legacy_flags for the table

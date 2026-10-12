@@ -7,6 +7,7 @@
  * @property {string} event
  * @property {string} start_date
  * @property {string} host
+ * @property {string} live "y" if the original deployment still serves this tournament
  * @property {string} version
  * @property {string} original_version
  * @property {string} legacy_flags
@@ -74,6 +75,17 @@ function formatVersion(version, original) {
 }
 
 /**
+ * Shows the host, linked to the original Live! deployment while it's still up
+ * @param {string} host
+ * @param {boolean} live
+ * @returns {string} an HTML snippet
+ */
+function formatHost(host, live) {
+  if (!live) return `<code>${host}</code>`;
+  return `<a href="https://${host}/"><code>${host}</code></a>`;
+}
+
+/**
  * @param {HTMLElement} tbody
  * @param {HTMLElement} status
  */
@@ -83,6 +95,8 @@ async function loadTournaments(tbody, status) {
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     const text = await res.text();
     const tournaments = papa().parse(text, { header: true, skipEmptyLines: true }).data;
+    // newest first, start_date is ISO so string compare sorts by date
+    tournaments.sort((a, b) => b.start_date.localeCompare(a.start_date));
 
     tbody.innerHTML = tournaments
       .map((t) => {
@@ -91,7 +105,7 @@ async function loadTournaments(tbody, status) {
           <tr>
             <td>${t.event}</td>
             <td>${t.start_date}</td>
-            <td><code>${t.host}</code></td>
+            <td>${formatHost(t.host, t.live === "y")}</td>
             <td>${formatVersion(t.version, t.original_version)}</td>
             <td><a href="${refURL}"><code>${t.slug}</code></a></td>
             <td>${t.notes}</td>

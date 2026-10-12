@@ -31,15 +31,19 @@ func ReadCSV(path string) ([]Tournament, error) {
 		if len(row) != len(csvHeader) {
 			return nil, fmt.Errorf("%s: row %d has %d columns, want %d", path, i+2, len(row), len(csvHeader))
 		}
+		if row[4] != "" && row[4] != "y" {
+			return nil, fmt.Errorf("%s: row %d live is %q, want \"y\" or blank", path, i+2, row[4])
+		}
 		tournaments = append(tournaments, Tournament{
 			Slug:            row[0],
 			Event:           row[1],
 			StartDate:       row[2],
 			Host:            row[3],
-			Version:         row[4],
-			OriginalVersion: row[5],
-			LegacyFlags:     row[6],
-			Notes:           row[7],
+			Live:            row[4] == "y",
+			Version:         row[5],
+			OriginalVersion: row[6],
+			LegacyFlags:     row[7],
+			Notes:           row[8],
 		})
 	}
 	return tournaments, nil
