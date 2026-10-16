@@ -24,6 +24,12 @@ This project aims to provide a long term archive of tournament statistics for th
    dist/utr -version uo_01 -host results.wfdf.sport -base-path /wmuc/
    ```
 
+   A Live! archive can then be extended with the UltiOrganizer site underneath it, which turns it into a `uo_01` archive (see [Live! archives](#live-archives)). The site defaults to the archive's own host and base path less `live/data/`
+
+   ```
+   dist/utr -version v01_09_14 -mode enrich -db data/wmucc2026.db -host results.wfdf.sport -base-path /wmucc-2026/
+   ```
+
 2. **Add** the tournament to [`tournaments.csv`](tournaments.csv), then run `just fmt` to update readme and homepage. Set `live` to `y` while the original deployment still serves the tournament so the host links to it, and blank it once it's gone.
 
 Team photos and other media event links are not archived from Live! deployments. `uo_01` keeps the links (not the media itself) shown on UltiOrganizer team and game pages.
@@ -52,8 +58,7 @@ Where multiple Live! versions have very similar response and schema shapes they 
 | `internal/livepublish/`   | render sqlite db as static JSON in docs/archive/                                     |
 | `internal/store/`         | plain-Go-typed reads and writes over each version's sqlc package                     |
 | `internal/uoclient/`      | scrape one season from a classic UltiOrganizer site's HTML pages and CSV exports     |
-| `internal/uoarchive/`     | resolve a scraped UltiOrganizer season into uo_01 archive rows and write sqlite      |
-| `internal/enrich/`        | fill a Live! archive with additional information from UltiOrganiser                  |
+| `internal/uoarchive/`     | resolve a scraped UltiOrganizer season into uo_01 rows, for a new or a Live! archive |
 | `internal/liveversion/`   | registry mapping a -version flag value to that version's Archive/Publish entrypoints |
 | `internal/convert`        | type conversion helpers                                                              |
 | `cmd/utr/`                | the single CLI tool                                                                  |
@@ -91,6 +96,7 @@ The archive is a superset of the `v1.9.14` schema: [`db/v01_09_14/schema.sql`](d
 | `clubs`, `team_clubs` | team clubs, by id                                                         |
 | `team_profiles`       | coach, captain, story and achievements from team cards                    |
 | `urls`                | team pages and photo/video links on team and game pages                   |
+| `server_settings`     | server settings the public pages follow, e.g. whether to show comments    |
 
 Locations and reservations also keep the address, coordinates and times the Live! API leaves out.
 
@@ -100,7 +106,14 @@ Where UltiOrganizer shows something only indirectly, the archive notes how it wa
 - pool type is read from how the pool page renders, and a pool's rules (winning score, caps, timeouts) aren't shown
 - home/visitor slot names (e.g. "Winner QF1") have no id anywhere, so they get synthetic negative ids
 - spirit comes from the `ext/spiritcsv.php` export when the site serves it: every submitted score with its comments, including games where only one team has submitted (the game page hides those until both have). Where a site locks the export, it falls back to the game pages, which only show two-sided scores and show comments only if the season enables it
-- a game with a result but no scoresheet has no id anywhere, so archiving stops with an error rather than leave it out
+- a game with a result but no scoresheet (e.g. a forfeit) has no id anywhere, so archiving stops with an error rather than leave it out
+- publish only includes spirit comments when the server showed them, read from whether game pages have a comments row
+
+### Live! archives
+
+`-mode enrich` adds the same extras to an existing 1.9.14-1.9.17 Live! archive from the UltiOrganizer site underneath it, making it a `uo_01` archive. The Live! archive stays the base: it has every game, including ones UltiOrganizer has no id for. Everything the two share (games, teams, players, goals, spirit) is checked to agree first, and any difference stops it before anything is written. It runs once per archive.
+
+Its published JSON stays as Live! served it, apart from spirit scores only one team submitted, which UltiOrganizer has and the Live! API leaves out.
 
 ## Archived tournaments
 
