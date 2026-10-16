@@ -53,6 +53,7 @@ Where multiple Live! versions have very similar response and schema shapes they 
 | `internal/store/`         | plain-Go-typed reads and writes over each version's sqlc package                     |
 | `internal/uoclient/`      | scrape one season from a classic UltiOrganizer site's HTML pages and CSV exports     |
 | `internal/uoarchive/`     | resolve a scraped UltiOrganizer season into uo_01 archive rows and write sqlite      |
+| `internal/enrich/`        | fill a Live! archive with additional information from UltiOrganiser                  |
 | `internal/liveversion/`   | registry mapping a -version flag value to that version's Archive/Publish entrypoints |
 | `internal/convert`        | type conversion helpers                                                              |
 | `cmd/utr/`                | the single CLI tool                                                                  |
