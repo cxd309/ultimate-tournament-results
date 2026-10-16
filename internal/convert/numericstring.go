@@ -1,6 +1,9 @@
 package convert
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // NumericString decodes a Live! API field that can arrive as either a JSON
 // string or a bare JSON number, depending on whether its value happens to
@@ -27,9 +30,14 @@ func (n *NumericString) UnmarshalJSON(data []byte) error {
 // MarshalJSON replicates the same coercion on the way out
 // an all-digit value is emitted as a bare number, matching what the live
 // API itself would send, anything else is a quoted string
+// leading zeros are dropped, as PHP's (int) cast does (e.g. a "006400" pool
+// colour is sent as 6400), they aren't valid in a JSON number
 func (n NumericString) MarshalJSON() ([]byte, error) {
 	if isAllDigits(string(n)) {
-		return []byte(n), nil
+		if trimmed := strings.TrimLeft(string(n), "0"); trimmed != "" {
+			return []byte(trimmed), nil
+		}
+		return []byte("0"), nil
 	}
 	return json.Marshal(string(n))
 }
