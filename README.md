@@ -1,6 +1,6 @@
 # Ultimate Tournament Results
 
-Historic archive of ultimate tournament results, recorded using the Live! by BULA API.
+Historic archive of ultimate tournament results, recorded using the Live! by BULA API, or for events without a Live! deployment, directly from their UltiOrganizer site.
 
 [Live! by BULA](https://github.com/layoutd/live-by-bula) is the public results platform used by recent WFDF, EUC and BULA events. It serves an API to provide dynamic data for the frontend as cached JSON files. However, this data is not guaranteed to be hosted forever.
 
@@ -18,9 +18,15 @@ This project aims to provide a long term archive of tournament statistics for th
 
    It then Publishes the archive to `docs/archive/<slug>/` to host static JSON under Live! APIs original filenames. This is then a drop in replacement for existing tools.
 
+   For an event run on plain UltiOrganizer with no Live! deployment, use `-version uo_01` with the UltiOrganizer install's own path as `-base-path` (see [UltiOrganizer sites](#ultiorganizer-sites))
+
+   ```
+   dist/utr -version uo_01 -host results.wfdf.sport -base-path /wmuc/
+   ```
+
 2. **Add** the tournament to [`tournaments.csv`](tournaments.csv), then run `just fmt` to update readme and homepage. Set `live` to `y` while the original deployment still serves the tournament so the host links to it, and blank it once it's gone.
 
-Team photos and other media event links are not currently archived at all.
+Team photos and other media event links are not archived from Live! deployments. `uo_01` keeps the links (not the media itself) shown on UltiOrganizer team and game pages.
 
 ## How this works
 
@@ -44,6 +50,9 @@ Where multiple Live! versions have very similar response and schema shapes they 
 | `internal/liveclient/`    | function to gather information from Live! deployment                                 |
 | `internal/livearchive/`   | archive workflow (gather data, apply schema, write sqlite)                           |
 | `internal/livepublish/`   | render sqlite db as static JSON in docs/archive/                                     |
+| `internal/store/`         | plain-Go-typed reads and writes over each version's sqlc package                     |
+| `internal/uoclient/`      | scrape one season from a classic UltiOrganizer site's HTML pages and CSV exports     |
+| `internal/uoarchive/`     | resolve a scraped UltiOrganizer season into uo_01 archive rows and write sqlite      |
 | `internal/liveversion/`   | registry mapping a -version flag value to that version's Archive/Publish entrypoints |
 | `internal/convert`        | type conversion helpers                                                              |
 | `cmd/utr/`                | the single CLI tool                                                                  |
@@ -60,6 +69,37 @@ Where multiple Live! versions have very similar response and schema shapes they 
 | 1.9.14 - 1.9.17           | v1.9.14         | Published   |
 | 2.0.0                     | -               | Not Planned |
 | 3.0.6                     | v3.0.6          | Published   |
+
+| Source                                   | `-version` flag | Status    |
+| ---------------------------------------- | --------------- | --------- |
+| UltiOrganizer site with no Live! install | uo_01           | Published |
+
+### UltiOrganizer sites
+
+Many events, e.g. about half of those listed on [results.wfdf.sport](https://results.wfdf.sport), ran on UltiOrganizer without Live! on top. `uo_01` archives those by scraping the site's public pages (schedule, pools, team cards, game pages) and CSV exports, since UltiOrganizer's own `ext/restful.php` API is broken on current deployments.
+
+The archive is a superset of the `v1.9.14` schema: [`db/v01_09_14/schema.sql`](db/v01_09_14/schema.sql) unchanged, plus [`db/uo_01/schema.sql`](db/uo_01/schema.sql) for what UltiOrganizer shows publicly that the Live! API has no place for. So it publishes the same Live! JSON as any 1.9.14-1.9.17 archive, and the extras are kept in `data/<slug>.db` only:
+
+| Table                 | Holds                                                                     |
+| --------------------- | ------------------------------------------------------------------------- |
+| `played`              | everyone entered as playing each game, with their number and captain flag |
+| `game_events`         | timeouts, turnovers and starting offence from each scoresheet             |
+| `team_pools`          | every pool each team was in, with its round-robin rank                    |
+| `game_pools`          | every pool each game counts towards                                       |
+| `move_teams`          | which round-robin placing continues to which pool                         |
+| `clubs`, `team_clubs` | team clubs, by id                                                         |
+| `team_profiles`       | coach, captain, story and achievements from team cards                    |
+| `urls`                | team pages and photo/video links on team and game pages                   |
+
+Locations and reservations also keep the address, coordinates and times the Live! API leaves out.
+
+Where UltiOrganizer shows something only indirectly, the archive notes how it was derived, in [`db/uo_01/schema.sql`](db/uo_01/schema.sql) and [`internal/uoarchive`](internal/uoarchive/):
+
+- the season's start/end are its first and last reservation, and its type isn't shown at all
+- pool type is read from how the pool page renders, and a pool's rules (winning score, caps, timeouts) aren't shown
+- home/visitor slot names (e.g. "Winner QF1") have no id anywhere, so they get synthetic negative ids
+- spirit comments are only archived when the game page itself shows them, not from the CSV export
+- a game with a result but no scoresheet has no id anywhere, so archiving stops with an error rather than leave it out
 
 ## Archived tournaments
 
