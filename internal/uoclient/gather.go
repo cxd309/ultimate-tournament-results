@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
+
+	"golang.org/x/net/html"
 
 	"github.com/cxd309/ultimate-tournament-results/internal/liveclient"
 )
@@ -103,17 +106,21 @@ func (c *Client) Gather(ctx context.Context, seasonID string) (*Snapshot, error)
 
 	fmt.Printf("fetching %d team cards...\n", len(snap.Teams))
 	snap.TeamCards = make(map[int64]TeamCard, len(snap.Teams))
+	var fromScoreboard []string
 	for i, t := range snap.Teams {
-		doc, err := c.getView(ctx, "teamcard", url.Values{"team": {strconv.FormatInt(t.TeamID, 10)}})
-		if err != nil {
-			return nil, fmt.Errorf("team %d: %w", t.TeamID, err)
-		}
-		card, err := parseTeamCard(doc, t.TeamID)
+		card, err := c.gatherTeamCard(ctx, snap.Menu, t)
 		if err != nil {
 			return nil, err
 		}
+		if card.FromScoreboard {
+			fromScoreboard = append(fromScoreboard, strconv.FormatInt(t.TeamID, 10))
+		}
 		snap.TeamCards[t.TeamID] = card
 		liveclient.PrintProgress(i+1, len(snap.Teams), 10)
+	}
+	if len(fromScoreboard) > 0 {
+		fmt.Printf("  %d team cards error on this site, rosters read from the team scoreboard instead, without profiles, clubs or links: teams %s\n",
+			len(fromScoreboard), strings.Join(fromScoreboard, ", "))
 	}
 
 	gameIDs := snap.GameIDs()
@@ -214,7 +221,13 @@ func (c *Client) gatherPools(ctx context.Context, snap *Snapshot) error {
 		if err != nil {
 			return fmt.Errorf("pool %d: %w", id, err)
 		}
-		pool, err := parsePool(doc, id)
+		var pool PoolPage
+		if isGamePage(doc) {
+			pool, err = singleGamePool(snap, id)
+			pool.International = flagFile(content(doc)) != ""
+		} else {
+			pool, err = parsePool(doc, id)
+		}
 		if err != nil {
 			return err
 		}
@@ -225,6 +238,62 @@ func (c *Client) gatherPools(ctx context.Context, snap *Snapshot) error {
 	}
 	fmt.Printf("  %d pools\n", len(snap.Pools))
 	return nil
+}
+
+// isGamePage is whether a page is a game's view=gameplay, which links the game's
+// gamecard; a pool page never does
+func isGamePage(doc *html.Node) bool {
+	return first(links(content(doc), "gamecard")) != nil
+}
+
+// singleGamePool is a round-robin pool with exactly one game, whose poolstatus
+// redirects to that game's gameplay page, so the pool itself is never shown: its name
+// is the left menu's and its game the one schedule row in it. It has no standings
+func singleGamePool(snap *Snapshot, id int64) (PoolPage, error) {
+	p := PoolPage{PoolID: id, Type: PoolTypeRoundRobin}
+	for _, d := range snap.Menu.Divisions {
+		for _, mp := range d.Pools {
+			if mp.PoolID == id {
+				p.Heading = d.Name + ", " + mp.Name
+			}
+		}
+	}
+	if p.Heading == "" {
+		return p, fmt.Errorf("pool %d: shows a game page, but isn't in the left menu to name it", id)
+	}
+	for _, g := range snap.Schedule {
+		if g.PoolID != id {
+			continue
+		}
+		if g.GameID == nil || len(p.GameIDs) > 0 {
+			return p, fmt.Errorf("pool %d: shows a game page, but doesn't schedule exactly one linked game", id)
+		}
+		p.GameIDs = []int64{*g.GameID}
+	}
+	if len(p.GameIDs) == 0 {
+		return p, fmt.Errorf("pool %d: shows a game page, but schedules no game", id)
+	}
+	p.LinkedGames = p.GameIDs
+	return p, nil
+}
+
+// gatherTeamCard fetches t's team card. Some installs' cards 500 (2023 sites, every
+// team), as does the roster view; the team scoreboard renders the same roster query
+// (TeamScoreBoard), so it stands in for the card's roster then
+func (c *Client) gatherTeamCard(ctx context.Context, menu Menu, t TeamListEntry) (TeamCard, error) {
+	team := url.Values{"team": {strconv.FormatInt(t.TeamID, 10)}}
+	doc, err := c.getView(ctx, "teamcard", team)
+	if err == nil {
+		return parseTeamCard(doc, t.TeamID)
+	}
+	var status *StatusError
+	if !errors.As(err, &status) || status.StatusCode != http.StatusInternalServerError {
+		return TeamCard{}, fmt.Errorf("team %d: %w", t.TeamID, err)
+	}
+	if doc, err = c.getView(ctx, "scorestatus", team); err != nil {
+		return TeamCard{}, fmt.Errorf("team %d: card errors, and so does its scoreboard: %w", t.TeamID, err)
+	}
+	return parseTeamScoreboard(doc, menu, t)
 }
 
 // gatherReservations fetches every reservation the schedule uses, then every

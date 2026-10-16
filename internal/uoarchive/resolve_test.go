@@ -134,3 +134,37 @@ func TestShowSpiritComments(t *testing.T) {
 		}
 	}
 }
+
+func TestResolvePlayersFromScoreboard(t *testing.T) {
+	games := func(n int64) *int64 { return &n }
+	snap := &uoclient.Snapshot{
+		Teams: []uoclient.TeamListEntry{{TeamID: 30, Name: "AUS Mixed"}},
+		TeamCards: map[int64]uoclient.TeamCard{30: {TeamID: 30, FromScoreboard: true, Roster: []uoclient.RosterPlayer{
+			{PlayerID: 42, Name: "Jake Upton", Games: games(10)},
+			{PlayerID: 41, Name: "Jacob Ellis", Games: games(0)},
+		}}},
+		PlayersCSV: []map[string]string{
+			{"FirstName": "Jake", "LastName": "Upton", "Jersey": "7", "TeamName": "AUS Mixed"},
+			{"FirstName": "Jacob", "LastName": "Ellis", "Jersey": "-1", "TeamName": "AUS Mixed"},
+		},
+	}
+	r := &rows{}
+	if err := r.resolvePlayers(snap); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.players) != 2 {
+		t.Fatalf("players %+v", r.players)
+	}
+	ellis, upton := r.players[0], r.players[1]
+	if upton.Num == nil || *upton.Num != 7 || upton.FirstName != "Jake" || *upton.GamesPlayed != 10 {
+		t.Errorf("upton %+v", upton)
+	}
+	if ellis.Num != nil || ellis.LastName != "Ellis" {
+		t.Errorf("negative jersey kept: %+v", ellis)
+	}
+
+	snap.PlayersCSV = append(snap.PlayersCSV, map[string]string{"FirstName": "Jake", "LastName": "Upton", "Jersey": "8", "TeamName": "AUS Mixed"})
+	if err := (&rows{}).resolvePlayers(snap); err == nil {
+		t.Error("name on the team twice in the CSV resolved")
+	}
+}

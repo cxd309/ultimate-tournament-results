@@ -94,7 +94,7 @@ func (c *Client) get(ctx context.Context, file string, query url.Values) ([]byte
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetch %s: unexpected status %s", u, resp.Status)
+		return nil, &StatusError{URL: u, StatusCode: resp.StatusCode, Status: resp.Status}
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -109,6 +109,17 @@ func (c *Client) get(ctx context.Context, file string, query url.Values) ([]byte
 		}
 	}
 	return body, nil
+}
+
+// StatusError is a response other than 200 OK
+type StatusError struct {
+	URL        string
+	StatusCode int
+	Status     string
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("fetch %s: unexpected status %s", e.URL, e.Status)
 }
 
 // getView fetches index.php?view={view}&{params} and parses it as HTML

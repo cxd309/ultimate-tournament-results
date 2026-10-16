@@ -262,3 +262,63 @@ func TestParseMenu(t *testing.T) {
 		}
 	}
 }
+
+func TestParseTeamScoreboard(t *testing.T) {
+	doc := parse(t, `<div class='content'><h1>Scoreboard</h1><table border='1'><tr>
+<th>#</th><th><a class='thsort' href='?view=scorestatus&amp;Team=30&amp;sort=name'>Player</a></th><th>Team</th><th>Games</th><th>Assists</th></tr>
+<tr><td>1</td><td><a href='?view=playercard&amp;series=0&amp;player=42'>Jake Upton</a></td><td>AUS Mixed</td><td class='center'>10</td><td class='center'>19</td></tr>
+<tr><td>2</td><td><a href='?view=playercard&amp;series=0&amp;player=41'>Jacob Ellis</a></td><td>AUS Mixed</td><td class='center'>0</td><td class='center'>0</td></tr>
+</table></div>`)
+	country := int64(4)
+	menu := Menu{Divisions: []MenuDivision{{SeriesID: 2, Name: "Open"}, {SeriesID: 3, Name: "Mixed"}}}
+	team := TeamListEntry{TeamID: 30, Name: "AUS Mixed", Division: "Mixed", CountryID: &country, CountryName: "Australia"}
+	card, err := parseTeamScoreboard(doc, menu, team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !card.FromScoreboard || card.SeriesID == nil || *card.SeriesID != 3 || card.CountryID != &country || card.Profile != nil {
+		t.Errorf("card %+v", card)
+	}
+	if len(card.Roster) != 2 || card.Roster[0].PlayerID != 42 || card.Roster[0].Name != "Jake Upton" || card.Roster[0].Num != nil ||
+		card.Roster[0].Games == nil || *card.Roster[0].Games != 10 || card.Roster[1].Games == nil || *card.Roster[1].Games != 0 {
+		t.Errorf("roster %+v", card.Roster)
+	}
+
+	team.Division = "Women's"
+	if _, err := parseTeamScoreboard(doc, menu, team); err == nil {
+		t.Error("division missing from the menu accepted")
+	}
+	team.Division, team.Name = "Mixed", "CAN Mixed"
+	if _, err := parseTeamScoreboard(doc, menu, team); err == nil {
+		t.Error("another team's players accepted")
+	}
+}
+
+func TestSingleGamePool(t *testing.T) {
+	game := parse(t, `<div class='content'><h1>France - Spain&nbsp;&nbsp;&nbsp;&nbsp;11 - 13</h1>
+<p><a href='?view=gamecard&amp;team1=1&amp;team2=2'>Game history</a></p><h2>Game statistics</h2></div>`)
+	pool := parse(t, `<div class='content'><h2>Mixed, Pool A</h2><table><tr><td><a href='?view=gameplay&amp;game=36'>Game play</a></td></tr></table></div>`)
+	if !isGamePage(game) || isGamePage(pool) {
+		t.Errorf("isGamePage: game %v, pool %v", isGamePage(game), isGamePage(pool))
+	}
+
+	id := func(n int64) *int64 { return &n }
+	snap := &Snapshot{
+		Menu:     Menu{Divisions: []MenuDivision{{SeriesID: 1, Name: "Mixed", Pools: []MenuPool{{PoolID: 1, Name: "Showcase"}}}}},
+		Schedule: []ScheduledGame{{GameID: id(7), PoolID: 1}, {GameID: id(8), PoolID: 2}},
+	}
+	p, err := singleGamePool(snap, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Heading != "Mixed, Showcase" || p.Type != PoolTypeRoundRobin || len(p.GameIDs) != 1 || p.GameIDs[0] != 7 || len(p.LinkedGames) != 1 {
+		t.Errorf("pool %+v", p)
+	}
+	if _, err := singleGamePool(snap, 2); err == nil {
+		t.Error("pool missing from the menu accepted")
+	}
+	snap.Schedule = append(snap.Schedule, ScheduledGame{GameID: id(9), PoolID: 1})
+	if _, err := singleGamePool(snap, 1); err == nil {
+		t.Error("two games accepted")
+	}
+}

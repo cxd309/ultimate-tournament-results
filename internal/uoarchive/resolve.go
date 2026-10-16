@@ -369,7 +369,8 @@ func (r *rows) resolveTeams(snap *uoclient.Snapshot) error {
 	return nil
 }
 
-// resolvePlayers fills players from each team card's roster
+// resolvePlayers fills players from each team card's roster, with the shirt number
+// from the players CSV where the roster came from the team scoreboard
 // the card prints names as one string, so first/last are taken from the player's
 // game scoreboards, which separate them exactly; a player with no games falls back to
 // the players CSV, matched by team, number and name
@@ -382,19 +383,53 @@ func (r *rows) resolvePlayers(snap *uoclient.Snapshot) error {
 		}
 	}
 	csvNames := map[string]name{}
+	// csvByName is by team and name, for a roster read from the team scoreboard,
+	// which shows no shirt numbers; nil for a name on a team twice
+	type csvPlayer struct {
+		jersey string
+		name   name
+	}
+	csvByName := map[string]*csvPlayer{}
 	for _, row := range snap.PlayersCSV {
-		key := row["TeamName"] + "\x00" + row["Jersey"] + "\x00" + clean(row["FirstName"]+" "+row["LastName"])
+		full := clean(row["FirstName"] + " " + row["LastName"])
+		key := row["TeamName"] + "\x00" + row["Jersey"] + "\x00" + full
 		csvNames[key] = name{row["FirstName"], row["LastName"]}
+		byName := row["TeamName"] + "\x00" + full
+		if _, dup := csvByName[byName]; dup {
+			csvByName[byName] = nil
+		} else {
+			csvByName[byName] = &csvPlayer{row["Jersey"], name{row["FirstName"], row["LastName"]}}
+		}
 	}
 
 	seen := map[int64]int64{}
 	for _, t := range snap.Teams {
-		for _, p := range snap.TeamCards[t.TeamID].Roster {
+		card := snap.TeamCards[t.TeamID]
+		for _, p := range card.Roster {
 			if team, dup := seen[p.PlayerID]; dup {
 				return fmt.Errorf("player %d on both team %d and team %d", p.PlayerID, team, t.TeamID)
 			}
 			seen[p.PlayerID] = t.TeamID
 			n, ok := names[p.PlayerID]
+			if card.FromScoreboard {
+				// the card prints uo_player.num, blank when negative; the CSV prints it raw
+				row := csvByName[t.Name+"\x00"+p.Name]
+				if row == nil {
+					return fmt.Errorf("player %d (%q, team %d): no single players CSV row to take a shirt number from", p.PlayerID, p.Name, t.TeamID)
+				}
+				if row.jersey != "" {
+					num, err := strconv.ParseInt(row.jersey, 10, 64)
+					if err != nil {
+						return fmt.Errorf("player %d (%q, team %d): players CSV jersey %q: %w", p.PlayerID, p.Name, t.TeamID, row.jersey, err)
+					}
+					if num >= 0 {
+						p.Num = &num
+					}
+				}
+				if !ok {
+					n, ok = row.name, true
+				}
+			}
 			if !ok {
 				jersey := ""
 				if p.Num != nil {

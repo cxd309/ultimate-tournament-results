@@ -20,6 +20,9 @@ type TeamCard struct {
 	Profile     *TeamProfile // nil when the card shows no profile at all
 	URLs        []URL
 	Roster      []RosterPlayer
+	// FromScoreboard is a card read from view=scorestatus because the card itself
+	// errors: the roster without shirt numbers, and no profile, club or links
+	FromScoreboard bool
 }
 
 // TeamProfile is the profile block a team card can show under its heading
@@ -38,6 +41,52 @@ type URL struct {
 	URL         string
 	IsMediaLink bool
 	MediaOwner  string // the "from ..." credit on a media link
+}
+
+// parseTeamScoreboard reads view=scorestatus for one team in place of its card: one row
+// per player on the team, with games played. Division and country are the teams
+// list's, the series id the left menu's division of that name
+func parseTeamScoreboard(doc *html.Node, menu Menu, t TeamListEntry) (TeamCard, error) {
+	card := TeamCard{TeamID: t.TeamID, CountryID: t.CountryID, CountryName: t.CountryName, FlagFile: t.FlagFile, FromScoreboard: true}
+	for _, d := range menu.Divisions {
+		if d.Name == t.Division {
+			if card.SeriesID != nil {
+				return card, fmt.Errorf("team %d: left menu has two %q divisions", t.TeamID, t.Division)
+			}
+			card.SeriesID = &d.SeriesID
+		}
+	}
+	if card.SeriesID == nil {
+		return card, fmt.Errorf("team %d: no %q division in the left menu", t.TeamID, t.Division)
+	}
+	c := content(doc)
+	if c == nil {
+		return card, fmt.Errorf("team %d scoreboard: no content", t.TeamID)
+	}
+	table := find(c, tag("table"))
+	if table == nil {
+		return card, fmt.Errorf("team %d scoreboard: no table", t.TeamID)
+	}
+	for _, tr := range rows(table) {
+		// #, player, team, games, ...
+		tds := children(tr, "td")
+		if len(tds) < 4 {
+			continue
+		}
+		a := first(links(tds[1], "playercard"))
+		if a == nil {
+			return card, fmt.Errorf("team %d scoreboard: row %q has no player link", t.TeamID, text(tr))
+		}
+		id, ok := linkID(a, "player")
+		if !ok {
+			return card, fmt.Errorf("team %d scoreboard: player link without an id: %q", t.TeamID, text(a))
+		}
+		if team := text(tds[2]); team != t.Name {
+			return card, fmt.Errorf("team %d scoreboard: player %d listed for %q", t.TeamID, id, team)
+		}
+		card.Roster = append(card.Roster, RosterPlayer{PlayerID: id, Name: text(a), Games: optionalInt(text(tds[3]))})
+	}
+	return card, nil
 }
 
 // RosterPlayer is one row of a team card's season roster
