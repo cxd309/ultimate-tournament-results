@@ -28,7 +28,8 @@ type MenuPool struct {
 
 func parseMenu(doc *html.Node) (Menu, error) {
 	var menu Menu
-	left := find(doc, func(n *html.Node) bool { return attr(n, "id") == "menu_left" })
+	// id on most sites, class on some custom templates (EBUCC 2023's cust/ebucc2022)
+	left := find(doc, func(n *html.Node) bool { return attr(n, "id") == "menu_left" || hasClass(n, "menu_left") })
 	if left == nil {
 		return menu, fmt.Errorf("no left menu")
 	}

@@ -146,3 +146,20 @@ func TestParseReservation(t *testing.T) {
 		t.Errorf("reservation %+v", r)
 	}
 }
+
+func TestParseMenu(t *testing.T) {
+	for _, menuAttr := range []string{`id='menu_left'`, `class='menu_left'`} {
+		doc := parse(t, `<table><tr><td `+menuAttr+`><table>
+<tr><td><a class='seasonnav' href='?view=teams&amp;season=EBUCC2023'>EBUCC 2023</a></td></tr>
+<tr><td class='menuserieslevel'><a href='?view=seriesstatus&amp;series=3'>Open</a></td></tr>
+<tr><td class='menupoollevel'><a href='?view=poolstatus&amp;pool=12'>» Pool A</a></td></tr>
+</table></td></tr></table>`)
+		m, err := parseMenu(doc)
+		if err != nil {
+			t.Fatalf("%s: %v", menuAttr, err)
+		}
+		if m.SeasonID != "EBUCC2023" || len(m.Divisions) != 1 || len(m.Divisions[0].Pools) != 1 || m.Divisions[0].Pools[0] != (MenuPool{PoolID: 12, Name: "Pool A"}) {
+			t.Errorf("%s: menu %+v", menuAttr, m)
+		}
+	}
+}
