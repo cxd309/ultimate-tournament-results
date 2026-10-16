@@ -41,8 +41,10 @@ type rows struct {
 	urls         []uostore.URL
 }
 
-// reservationTimeLayout is the reservation page's DefTimeFormat, "d.m.Y H:i"
-const reservationTimeLayout = "02.01.2006 15:04"
+// reservationTimeLayout is the reservation page's DefTimeFormat, "d.m.Y H:i", or
+// "j.n.Y H:i" on sites that don't zero-pad the date (WMUCC 2026's "28.6.2026");
+// Go's unpadded day and month read either
+const reservationTimeLayout = "2.1.2006 15:04"
 
 const archiveTimeLayout = "2006-01-02 15:04:05"
 

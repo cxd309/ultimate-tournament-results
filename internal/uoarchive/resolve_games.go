@@ -2,6 +2,7 @@ package uoarchive
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -129,17 +130,18 @@ func (r *rows) resolveGameDetail(id int64, game store.Game, page uoclient.GamePa
 	goals := map[int64]int64{}
 	assists := map[int64]int64{}
 	for i, g := range page.Goals {
-		board := page.Visitor
+		board, team := page.Visitor, game.Visitorteam
 		if g.IsHome {
-			board = page.Home
+			board, team = page.Home, game.Hometeam
 		}
-		scorer, err := resolveRef(board, g.Scorer)
+		roster := r.roster(team)
+		scorer, err := resolveScorer(board, roster, g.Scorer)
 		if err != nil {
 			return fmt.Errorf("goal %d scorer: %w", i+1, err)
 		}
 		var assist *int64
 		if !g.IsCallahan {
-			if assist, err = resolveRef(board, g.Assist); err != nil {
+			if assist, err = resolveScorer(board, roster, g.Assist); err != nil {
 				return fmt.Errorf("goal %d assist: %w", i+1, err)
 			}
 		}
@@ -179,6 +181,38 @@ func (r *rows) resolveGameDetail(id int64, game store.Game, page uoclient.GamePa
 	return nil
 }
 
+// resolveScorer finds the player a scoresheet reference names: on the game's
+// scoreboard, or when nobody there has that name, on the team's roster. A player can
+// be credited with a goal without being entered as playing the game (WMUCC 2026 game
+// 399's "#88 Kelly Hyland"); the Live! API resolves them to the roster player too
+func resolveScorer(board, roster []uoclient.ScoreboardPlayer, ref uoclient.PlayerRef) (*int64, error) {
+	id, err := resolveRef(board, ref)
+	if errors.Is(err, errNoMatch) {
+		if id, err := resolveRef(roster, ref); err == nil {
+			return id, nil
+		}
+	}
+	return id, err
+}
+
+// roster is team's players in the form resolveRef matches against, none for an
+// unresolved slot
+func (r *rows) roster(team *int64) []uoclient.ScoreboardPlayer {
+	if team == nil {
+		return nil
+	}
+	var roster []uoclient.ScoreboardPlayer
+	for _, p := range r.players {
+		if p.Team == *team {
+			roster = append(roster, uoclient.ScoreboardPlayer{PlayerID: p.PlayerID, Num: p.Num, FirstName: p.FirstName, LastName: p.LastName})
+		}
+	}
+	return roster
+}
+
+// errNoMatch is resolveRef's error when no player has the reference's name
+var errNoMatch = errors.New("no player has that name")
+
 // resolveRef finds the scoreboard player a scoresheet reference names
 // matched on number and name, then on name alone when the number doesn't match (a
 // player can wear a different number in one game); nil for an empty reference
@@ -196,6 +230,9 @@ func resolveRef(board []uoclient.ScoreboardPlayer, ref uoclient.PlayerRef) (*int
 			return &id, nil
 		}
 		byName = append(byName, p.PlayerID)
+	}
+	if len(byName) == 0 {
+		return nil, fmt.Errorf("%q: %w", ref.Name, errNoMatch)
 	}
 	if len(byName) != 1 {
 		return nil, fmt.Errorf("%d scoreboard players match %q", len(byName), ref.Name)

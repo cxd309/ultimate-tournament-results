@@ -12,6 +12,10 @@ func TestReservationTimes(t *testing.T) {
 	if err != nil || start != "2024-11-10 11:00:00" || end != "2024-11-10 19:00:00" {
 		t.Errorf("got %q %q %v", start, end, err)
 	}
+	start, end, err = reservationTimes("28.6.2026 09:00 - 18:30")
+	if err != nil || start != "2026-06-28 09:00:00" || end != "2026-06-28 18:30:00" {
+		t.Errorf("unpadded: got %q %q %v", start, end, err)
+	}
 	if _, _, err := reservationTimes("2024-11-10 11:00"); err == nil {
 		t.Error("accepted an unexpected format")
 	}
@@ -48,6 +52,18 @@ func TestResolveRef(t *testing.T) {
 	}
 	if _, err := resolveRef(board, uoclient.PlayerRef{Name: "Nobody"}); err == nil {
 		t.Error("unknown name resolved")
+	}
+
+	roster := append(board[:0:0], board...)
+	roster = append(roster, uoclient.ScoreboardPlayer{PlayerID: 5, Num: num(88), FirstName: "Kelly", LastName: "Hyland"})
+	if got, err := resolveScorer(board, roster, uoclient.PlayerRef{Num: num(88), Name: "Kelly Hyland"}); err != nil || got == nil || *got != 5 {
+		t.Errorf("player not on the scoreboard = %v, %v; want 5 from the roster", got, err)
+	}
+	if _, err := resolveScorer(board, roster, uoclient.PlayerRef{Name: "Sam Lee"}); err == nil {
+		t.Error("ambiguous scoreboard name fell back to the roster")
+	}
+	if _, err := resolveScorer(board, roster, uoclient.PlayerRef{Name: "Nobody"}); err == nil {
+		t.Error("unknown name resolved from the roster")
 	}
 }
 
