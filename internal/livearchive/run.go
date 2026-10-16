@@ -26,6 +26,8 @@ type ArchiveOptions struct {
 	SeasonID   string // override instead of discovering it from the heartbeat
 	Unprefixed bool   // static filenames carry no season-id prefix
 	CacheDir   string // keep fetched pages here and reuse them on a re-run
+	// SkipDivisions are division names left out of the archive (uo_01 only)
+	SkipDivisions []string
 }
 
 // Summary is what's reported back to the caller (and printed) once Archive finishes

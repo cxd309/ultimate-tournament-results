@@ -18,6 +18,7 @@ import (
 // see livearchive.Run for the write-once/slug/dbPath rules
 // opts.SeasonID picks the season, needed when the site hosts more than one
 // opts.CacheDir keeps every fetched page so a re-run doesn't fetch them again
+// opts.SkipDivisions leaves those divisions out entirely, see Snapshot.DropDivisions
 func Archive(ctx context.Context, host, basePath, slug, dbPath string, opts livearchive.ArchiveOptions) (livearchive.Summary, error) {
 	return livearchive.Run(ctx, livearchive.Deps[*rows]{
 		SchemaPaths: []string{"db/v01_09_14/schema.sql", "db/uo_01/schema.sql"},
@@ -26,6 +27,9 @@ func Archive(ctx context.Context, host, basePath, slug, dbPath string, opts live
 			c.CacheDir = opts.CacheDir
 			snap, err := c.Gather(ctx, opts.SeasonID)
 			if err != nil {
+				return nil, err
+			}
+			if err := snap.DropDivisions(opts.SkipDivisions); err != nil {
 				return nil, err
 			}
 			return resolve(snap, host, basePath, false)

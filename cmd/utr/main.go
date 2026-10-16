@@ -36,6 +36,7 @@ func run() error {
 	seasonID := flag.String("season-id", "", "override the season id instead of discovering it from the heartbeat (legacy deployments only); uo_01: the season to archive, needed when the site hosts more than one")
 	cacheDir := flag.String("cache", "", "uo_01 and enrich: directory to keep fetched pages in and reuse on a re-run, e.g. after a failed archive")
 	unprefixed := flag.Bool("unprefixed", false, "static JSON filenames carry no season-id prefix (legacy deployments only)")
+	skipDivisions := flag.String("skip-divisions", "", "uo_01 archive: comma-separated division names to leave out entirely, e.g. divisions scored without scoresheets")
 	flag.Parse()
 
 	v, ok := liveversion.Get(*versionKey)
@@ -50,6 +51,12 @@ func run() error {
 	}
 
 	opts := livearchive.ArchiveOptions{SeasonID: *seasonID, Unprefixed: *unprefixed, CacheDir: *cacheDir}
+	if *skipDivisions != "" {
+		if *versionKey != "uo_01" {
+			return fmt.Errorf("-skip-divisions is only for -version uo_01")
+		}
+		opts.SkipDivisions = strings.Split(*skipDivisions, ",")
+	}
 
 	ctx := context.Background()
 
