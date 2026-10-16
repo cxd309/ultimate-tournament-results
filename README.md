@@ -187,6 +187,7 @@ do not edit this table by hand, edit the csv and regenerate instead
 | WUCC 2026                    | WFDF       | 2026-08-15 | [`results.wfdf.sport/wucc-2026`](https://results.wfdf.sport/wucc-2026/)                 | `v3.0.6`                      |                                     | [`WUCC2026`](docs/archive/WUCC2026/)   |                              |
 | UK Nats 2026                 | UKU        | 2026-09-05 | [`uku-schedule.ultimatefederation.eu`](https://uku-schedule.ultimatefederation.eu/)     | `v1.7.8` (`v1.9.14`)          |                                     | [`26UKUNATS`](docs/archive/26UKUNATS/) |                              |
 | EUCF 2026                    | EUF        | 2026-10-09 | [`eucf.ultimatefederation.eu`](https://eucf.ultimatefederation.eu/)                     | `v1.9.14` (`v1.9.17`)         |                                     | [`26EUCFWRO`](docs/archive/26EUCFWRO/) |                              |
+| WGGMBUCC 2026                | BULA       | 2026-09-23 | [`wggmbucc.org/2026`](https://wggmbucc.org/2026/)                                       | `v3.0.6`                      |                                     | [`wggm2026`](docs/archive/wggm2026/)   |                              |
 
 <!-- tournaments:end -->
 
