@@ -66,6 +66,50 @@ func TestParseScheduleRow(t *testing.T) {
 	}
 }
 
+// trimmed from results.wfdf.sport/wjuc-2026/, which runs UltiOrganizer 3.x templates
+func TestParseScheduleRow3x(t *testing.T) {
+	doc := parse(t, `<div class='content'><h1>Saturday</h1><h3>Sat 11.7.2026</h3>
+<table class='games-table'><tr><th align='left' colspan='13'><a class='thlink' href='?view=reservationinfo&amp;reservation=2'>Field 1</a></th></tr>
+<tr style='width:100%'>
+<td style='width:40px'><span>09:30</span></td>
+<td style='width:140px'><span class='game-loser'><img height='10' src='images/flags/tiny/United_Kingdom.png' alt=''/> GBR O</span></td>
+<td style='width:5px'>-</td>
+<td style='width:140px'><span class='game-winner'><img height='10' src='images/flags/tiny/Israel.png' alt=''/> ISR O</span></td>
+<td style='width:80px'><span>Open</span></td>
+<td style='width:130px'><span><a href='?view=poolstatus&pool=6'>Pool B</a></span></td>
+<td style='width:15px'><span>6</span></td>
+<td style='width:5px'><span>-</span></td>
+<td style='width:15px'><span>13</span></td>
+<td></td>
+<td style='width:50px'><span>S6</span></td>
+<td style='width:40px;white-space: nowrap;'></td>
+<td class='right nowrap' style='width:80px'><span>&nbsp;<a href='?view=gameplay&amp;game=57'>Gameplay</a></span></td>
+</tr>
+<tr><th align='left' colspan='13'><a class='thlink' href='?view=reservationinfo&amp;reservation=3'>Highfields Field H01</a></th></tr>
+<tr style='width:100%'>
+<td><span>11:00</span></td><td><span class='schedulingname'>A1</span></td><td>-</td><td><span class='schedulingname'>B2</span></td>
+<td><span>Open</span></td><td><span><a href='?view=poolstatus&pool=7'>Final</a></span></td>
+<td><span>?</span></td><td><span>-</span></td><td><span>?</span></td><td></td><td></td><td></td><td class='left'></td>
+</tr></table></div>`)
+	games, _, err := parseSchedule(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(games) != 2 {
+		t.Fatalf("%d games", len(games))
+	}
+	g := games[0]
+	if g.GameID == nil || *g.GameID != 57 || g.ReservationID != 2 || g.PoolID != 6 || g.PlaceName != "" ||
+		g.FieldLabel != "Field 1" || g.Time != "09:30" || g.Home != "GBR O" || g.Visitor != "ISR O" ||
+		g.Division != "Open" || g.PoolName != "Pool B" || *g.HomeScore != 6 || *g.VisitorScore != 13 || g.GameName != "S6" {
+		t.Errorf("unexpected row %+v", g)
+	}
+	g = games[1]
+	if g.GameID != nil || g.HomeScore != nil || g.VisitorScore != nil || g.PlaceName != "Highfields" || g.FieldLabel != "Field H01" || g.Home != "A1" || g.PoolID != 7 {
+		t.Errorf("unexpected unplayed row %+v", g)
+	}
+}
+
 func TestParseGame(t *testing.T) {
 	doc := parse(t, `<div class='content'>
 <h1>Germany MO - Venezuela MO&nbsp;&nbsp;&nbsp;&nbsp;15 - 10</h1>
@@ -144,6 +188,61 @@ func TestParseReservation(t *testing.T) {
 	}
 	if r.LocationID != 1 || r.Heading != "Highfields Field H01" || r.Times != "28.6.2026 09:00 - 18:30" || r.Address != "Highfields Road" {
 		t.Errorf("reservation %+v", r)
+	}
+}
+
+func TestParseReservation3x(t *testing.T) {
+	doc := parse(t, `<div class='content'>
+<h1>Reservation: Field 1</h1>
+<p>11.7.2026 09:30 - 17:00</p>
+</div>`)
+	r, err := parseReservation(doc, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.LocationID != 0 || r.Heading != "Field 1" || r.Times != "11.7.2026 09:30 - 17:00" || r.Address != "" {
+		t.Errorf("reservation %+v", r)
+	}
+	// a 3.x page never gives the location id, so a reservation with one is refused
+	doc = parse(t, `<div class='content'><h1>Reservation: Highfields Field H01</h1><p>28.6.2026 09:00 - 18:30</p><p>Highfields Road</p></div>`)
+	if _, err := parseReservation(doc, 3); err == nil {
+		t.Error("3.x reservation with a location accepted")
+	}
+}
+
+func TestParsePoolPlayoffLinks(t *testing.T) {
+	doc := parse(t, `<div class='content'><h2>Open, Playoff (1-8) Semifinals</h2><p>No playoff tree template found.</p>
+<table><tr><td class='right nowrap'><span>&nbsp;<a href='?view=gameplay&amp;game=152'>Gameplay</a></span></td></tr>
+<tr><td class='right nowrap'><span>&nbsp;<a href='?view=gameplay&amp;game=153'>Gameplay</a></span></td></tr></table></div>`)
+	p, err := parsePool(doc, 14)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Type == PoolTypeRoundRobin || p.GameIDs != nil || len(p.LinkedGames) != 2 || p.LinkedGames[0] != 152 || p.LinkedGames[1] != 153 {
+		t.Errorf("pool %+v", p)
+	}
+}
+
+func TestAddUnlisted(t *testing.T) {
+	id := func(n int64) *int64 { return &n }
+	snap := &Snapshot{Schedule: []ScheduledGame{{GameID: id(1), PoolID: 6}}}
+	added := addUnlisted(snap, []ScheduledGame{
+		{GameID: id(1), PoolID: 6}, // listed pool, left to the schedule
+		{GameID: id(152), PoolID: 14},
+		{GameID: id(160), PoolID: 14}, // a forfeit: the pool page doesn't link it
+	})
+	if len(snap.Schedule) != 3 || len(added) != 2 {
+		t.Fatalf("schedule %+v, added %v", snap.Schedule, added)
+	}
+	snap.Pools = map[int64]PoolPage{6: {}, 14: {LinkedGames: []int64{152}}}
+	if err := linkUnlisted(snap, added); err != nil {
+		t.Fatal(err)
+	}
+	if g := snap.Schedule[1].GameID; g == nil || *g != 152 {
+		t.Errorf("linked game lost its id: %v", g)
+	}
+	if g := snap.Schedule[2].GameID; g != nil {
+		t.Errorf("unlinked game kept id %d", *g)
 	}
 }
 

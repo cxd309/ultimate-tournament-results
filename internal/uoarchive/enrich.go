@@ -57,8 +57,15 @@ func Enrich(ctx context.Context, dbPath string, opts EnrichOptions) error {
 		return err
 	}
 
+	live, err := loadLive(ctx, s)
+	if err != nil {
+		return err
+	}
 	c := uoclient.NewClient(opts.Host, opts.BasePath)
 	c.CacheDir = opts.CacheDir
+	if c.Unlisted, err = live.scheduleRows(); err != nil {
+		return err
+	}
 	snap, err := c.Gather(ctx, opts.SeasonID)
 	if err != nil {
 		return fmt.Errorf("gather: %w", err)
@@ -70,11 +77,6 @@ func Enrich(ctx context.Context, dbPath string, opts EnrichOptions) error {
 	r, err := resolve(snap, opts.Host, opts.BasePath, true)
 	if err != nil {
 		return fmt.Errorf("resolve: %w", err)
-	}
-
-	live, err := loadLive(ctx, s)
-	if err != nil {
-		return err
 	}
 	if err := checkShared(r, live); err != nil {
 		return err
@@ -157,9 +159,10 @@ func EnrichUnsupported(_ context.Context, dbPath string, _ EnrichOptions) error 
 // live is the Live! archive Enrich fills in
 type live struct {
 	liveArchive
-	locations []store.Location
-	players   []store.Player
-	goals     []store.Goal
+	locations       []store.Location
+	players         []store.Player
+	goals           []store.Goal
+	schedulingNames []store.SchedulingName
 }
 
 func loadLive(ctx context.Context, s *store.Store) (live, error) {
@@ -192,7 +195,85 @@ func loadLive(ctx context.Context, s *store.Store) (live, error) {
 	if l.spirit, err = s.ListSpiritScores(ctx); err != nil {
 		return l, fmt.Errorf("spirit scores: %w", err)
 	}
+	if l.schedulingNames, err = s.ListSchedulingNames(ctx); err != nil {
+		return l, fmt.Errorf("scheduling names: %w", err)
+	}
 	return l, nil
+}
+
+// scheduleRows is every game of the archive as the schedule page would list it, for
+// the games of pools a 3.x schedule leaves out (uoclient.Client.Unlisted). Only their
+// reservation can't be read from UltiOrganizer itself: everything resolve takes from
+// a schedule row is then checked against the scraped pages and the games CSV, the
+// same as for a listed game
+func (l live) scheduleRows() ([]uoclient.ScheduledGame, error) {
+	reservations := map[int64]store.Reservation{}
+	for _, v := range l.reservations {
+		reservations[v.ID] = v
+	}
+	pools := map[int64]store.Pool{}
+	for _, v := range l.pools {
+		pools[v.PoolID] = v
+	}
+	divisions := map[int64]string{}
+	for _, v := range l.divisions {
+		divisions[v.SeriesID] = v.Name
+	}
+	teams := map[int64]string{}
+	for _, v := range l.teams {
+		teams[v.TeamID] = v.Name
+	}
+	names := map[int64]string{}
+	for _, v := range l.schedulingNames {
+		names[v.SchedulingID] = v.Name
+	}
+	listed := func(team, slot *int64) string {
+		if team != nil {
+			return clean(teams[*team])
+		}
+		if slot != nil {
+			return clean(names[*slot])
+		}
+		return ""
+	}
+
+	var rows []uoclient.ScheduledGame
+	for _, g := range l.games {
+		if g.Reservation == nil || g.Pool == nil {
+			continue
+		}
+		res, ok := reservations[*g.Reservation]
+		if !ok {
+			return nil, fmt.Errorf("game %d: reservation %d isn't in the archive", g.GameID, *g.Reservation)
+		}
+		pool, ok := pools[*g.Pool]
+		if !ok || pool.Series == nil {
+			return nil, fmt.Errorf("game %d: pool %d isn't in the archive with a division", g.GameID, *g.Pool)
+		}
+		if len(g.Time) < 16 {
+			return nil, fmt.Errorf("game %d: time %q has no HH:MM", g.GameID, g.Time)
+		}
+		id := g.GameID
+		row := uoclient.ScheduledGame{
+			GameID:           &id,
+			ReservationID:    res.ID,
+			FieldLabel:       "Field " + res.FieldName,
+			ReservationGroup: res.ReservationGroup,
+			Time:             g.Time[11:16],
+			Home:             listed(g.Hometeam, g.SchedulingNameHome),
+			Visitor:          listed(g.Visitorteam, g.SchedulingNameVisitor),
+			HomeScore:        g.Homescore,
+			VisitorScore:     g.Visitorscore,
+			Division:         divisions[*pool.Series],
+			PoolID:           pool.PoolID,
+			PoolName:         pool.Name,
+		}
+		if g.Name != nil {
+			row.GameName = names[*g.Name]
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
 }
 
 // checkShared checks the scrape agrees with the Live! archive on everything they

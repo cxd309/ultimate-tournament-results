@@ -61,8 +61,7 @@ func parseSchedule(doc *html.Node) ([]ScheduledGame, string, error) {
 				return false
 			}
 			reservation = id
-			placeName = text(a)
-			fieldLabel = strings.TrimSpace(strings.TrimPrefix(text(n), placeName))
+			placeName, fieldLabel = placeHeader(text(a), text(n))
 			return false
 		case "tr":
 			tds := children(n, "td")
@@ -101,32 +100,57 @@ func parseSchedule(doc *html.Node) ([]ScheduledGame, string, error) {
 
 var timezonePattern = regexp.MustCompile(`Timezone: (\S+?)\.(\s|$)`)
 
-// parseScheduleRow reads one GameRow rendered with time, series and pool columns:
-// time, home, home score, "-", visitor score, visitor, division, pool, game name,
-// media, info (holding the "Game play" link)
-func parseScheduleRow(tds []*html.Node) (ScheduledGame, error) {
-	g := ScheduledGame{
-		Time:     text(tds[0]),
-		Home:     text(tds[1]),
-		Visitor:  text(tds[5]),
-		Division: text(tds[6]),
-		PoolName: text(tds[7]),
-		GameName: text(tds[8]),
+// placeHeader splits a reservation header into location name and "Field N" label.
+// 1.x links the location name and prints the label after the link; 3.x puts
+// ReservationPlaceText ("{location} Field {field}", either part may be missing)
+// inside the link and nothing after it
+func placeHeader(link, header string) (string, string) {
+	if label := strings.TrimSpace(strings.TrimPrefix(header, link)); label != "" {
+		return link, label
 	}
-	g.HomeScore, g.VisitorScore = scoreCell(tds[2]), scoreCell(tds[4])
-	pool, ok := firstLinkID(tds[7], "poolstatus", "pool")
+	if strings.HasPrefix(link, "Field ") {
+		return "", link
+	}
+	if i := strings.LastIndex(link, " Field "); i >= 0 {
+		return link[:i], link[i+1:]
+	}
+	return link, ""
+}
+
+// parseScheduleRow reads one GameRow rendered with time, series and pool columns.
+// 1.x renders time, home, home score, "-", visitor score, visitor, division, pool,
+// game name, media, info (holding the "Game play" link); 3.x renders time, home, "-",
+// visitor, division, pool, home score, "-", visitor score, forfeit mark, game name,
+// media, info. The pool link's column tells the two apart
+func parseScheduleRow(tds []*html.Node) (ScheduledGame, error) {
+	var g ScheduledGame
+	var poolTD, infoTD *html.Node
+	switch {
+	case first(links(tds[7], "poolstatus")) != nil:
+		g = ScheduledGame{Time: text(tds[0]), Home: text(tds[1]), Visitor: text(tds[5]), Division: text(tds[6]), PoolName: text(tds[7]), GameName: text(tds[8])}
+		g.HomeScore, g.VisitorScore = scoreCell(tds[2]), scoreCell(tds[4])
+		poolTD, infoTD = tds[7], tds[10]
+	case len(tds) >= 13 && first(links(tds[5], "poolstatus")) != nil:
+		g = ScheduledGame{Time: text(tds[0]), Home: text(tds[1]), Visitor: text(tds[3]), Division: text(tds[4]), PoolName: text(tds[5]), GameName: text(tds[10])}
+		g.HomeScore, g.VisitorScore = scoreCell(tds[6]), scoreCell(tds[8])
+		poolTD, infoTD = tds[5], tds[12]
+	default:
+		return g, fmt.Errorf("game row without a pool link: %s", text(tds[0]))
+	}
+	pool, ok := firstLinkID(poolTD, "poolstatus", "pool")
 	if !ok {
 		return g, fmt.Errorf("game row without a pool id: %s %s - %s", g.Time, g.Home, g.Visitor)
 	}
 	g.PoolID = pool
-	if id, ok := firstLinkID(tds[10], "gameplay", "game"); ok {
+	if id, ok := firstLinkID(infoTD, "gameplay", "game"); ok {
 		g.GameID = &id
 	}
 	return g, nil
 }
 
-// scoreCell is a GameRow score cell's score, the first <span>; the second holds the
-// spirit total in brackets. nil for a game with no result, which renders &nbsp;
+// scoreCell is a GameRow score cell's score, the first <span>; on 1.x the second
+// holds the spirit total in brackets. nil for a game with no result, which renders
+// &nbsp; on 1.x and "?" on 3.x
 func scoreCell(td *html.Node) *int64 {
 	span := find(td, tag("span"))
 	if span == nil {
@@ -147,11 +171,19 @@ type ReservationPage struct {
 
 var locationIDPattern = regexp.MustCompile(`locationxml\.php\?id=(\d+)`)
 
+// parseReservation reads view=reservationinfo. 1.x always loads the location from
+// ext/locationxml.php in a page script and follows the heading with times, address and
+// info paragraphs; 3.x has no such script, heads the page "Reservation: {place}" and
+// prints only the paragraphs that aren't empty. 3.x never gives the location id, so a
+// 3.x reservation is only read when it has no location: no name in the heading and
+// neither address nor info, just the times
 func parseReservation(doc *html.Node, id int64) (ReservationPage, error) {
 	r := ReservationPage{ReservationID: id}
+	hasScript := false
 	for _, script := range findAll(doc, tag("script")) {
 		if m := locationIDPattern.FindStringSubmatch(scriptText(script)); m != nil {
 			r.LocationID, _ = strconv.ParseInt(m[1], 10, 64)
+			hasScript = true
 		}
 	}
 	c := content(doc)
@@ -163,12 +195,19 @@ func parseReservation(doc *html.Node, id int64) (ReservationPage, error) {
 		return r, fmt.Errorf("reservation %d: no heading", id)
 	}
 	r.Heading = text(h1)
-	// the heading is followed by times, address and info paragraphs, in that order
 	var ps []string
 	for n := h1.NextSibling; n != nil && len(ps) < 3; n = n.NextSibling {
 		if n.Type == html.ElementNode && n.Data == "p" {
 			ps = append(ps, text(n))
 		}
+	}
+	if !hasScript {
+		r.Heading = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(r.Heading, "Reservation"), ":"))
+		if place, _ := placeHeader(r.Heading, r.Heading); place != "" || len(ps) != 1 {
+			return r, fmt.Errorf("reservation %d: has a location, which 3.x pages don't give the id of", id)
+		}
+		r.Times = ps[0]
+		return r, nil
 	}
 	if len(ps) < 3 {
 		return r, fmt.Errorf("reservation %d: expected times, address and info after the heading", id)

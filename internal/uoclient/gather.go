@@ -69,6 +69,7 @@ func (c *Client) Gather(ctx context.Context, seasonID string) (*Snapshot, error)
 	if snap.Schedule, snap.Timezone, err = parseSchedule(doc); err != nil {
 		return nil, fmt.Errorf("schedule: %w", err)
 	}
+	unlisted := addUnlisted(snap, c.Unlisted)
 
 	fmt.Println("fetching team lists...")
 	if doc, err = c.getView(ctx, "teams", url.Values{"season": {seasonID}, "list": {"allteams"}}); err != nil {
@@ -91,6 +92,9 @@ func (c *Client) Gather(ctx context.Context, seasonID string) (*Snapshot, error)
 	}
 
 	if err := c.gatherPools(ctx, snap); err != nil {
+		return nil, err
+	}
+	if err := linkUnlisted(snap, unlisted); err != nil {
 		return nil, err
 	}
 	if err := c.gatherReservations(ctx, snap); err != nil {
@@ -146,6 +150,43 @@ func (c *Client) Gather(ctx context.Context, seasonID string) (*Snapshot, error)
 	}
 
 	return snap, nil
+}
+
+// addUnlisted appends the rows of unlisted whose pool the schedule page doesn't list,
+// returning their indexes in snap.Schedule
+func addUnlisted(snap *Snapshot, unlisted []ScheduledGame) []int {
+	listed := map[int64]bool{}
+	for _, g := range snap.Schedule {
+		listed[g.PoolID] = true
+	}
+	var added []int
+	for _, g := range unlisted {
+		if !listed[g.PoolID] {
+			added = append(added, len(snap.Schedule))
+			snap.Schedule = append(snap.Schedule, g)
+		}
+	}
+	if len(added) > 0 {
+		fmt.Printf("  %d games in pools the schedule doesn't list, taken from the archive\n", len(added))
+	}
+	return added
+}
+
+// linkUnlisted keeps an added row's game id only when its pool page links the game,
+// as the schedule would have: GameRow links a game only once it has a scoresheet,
+// and a playoff page with no bracket template lists its games with GameRow
+func linkUnlisted(snap *Snapshot, added []int) error {
+	for _, i := range added {
+		g := &snap.Schedule[i]
+		pool, ok := snap.Pools[g.PoolID]
+		if !ok {
+			return fmt.Errorf("pool %d: page not gathered", g.PoolID)
+		}
+		if g.GameID != nil && !slices.Contains(pool.LinkedGames, *g.GameID) {
+			g.GameID = nil
+		}
+	}
+	return nil
 }
 
 // gatherPools fetches every pool the menu or the schedule names, then any pool those

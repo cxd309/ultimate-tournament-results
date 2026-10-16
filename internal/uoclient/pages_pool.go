@@ -34,6 +34,8 @@ type PoolPage struct {
 	// moved in from a previous pool; nil for other types, whose pages show the whole
 	// bracket across follower pools rather than this pool's games
 	GameIDs []int64
+	// LinkedGames is every game the page links to anywhere, any pool type
+	LinkedGames []int64
 	// International is whether team flags are shown, which UltiOrganizer only does
 	// for an international season
 	International bool
@@ -104,6 +106,11 @@ func parsePool(doc *html.Node, id int64) (PoolPage, error) {
 		}
 	}
 
+	for _, a := range links(c, "gameplay") {
+		if id, ok := linkID(a, "game"); ok && !slices.Contains(p.LinkedGames, id) {
+			p.LinkedGames = append(p.LinkedGames, id)
+		}
+	}
 	if p.Type == PoolTypeRoundRobin {
 		p.ContinuesTo = parseContinuesTo(c)
 		p.GameIDs = parsePoolGames(c)

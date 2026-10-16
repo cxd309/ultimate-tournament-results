@@ -47,6 +47,10 @@ const locale = "en_GB.utf8"
 type Client struct {
 	liveclient.Client
 	CacheDir string
+	// Unlisted is schedule rows from elsewhere for the games a 3.x schedule leaves
+	// out: its games view only lists games in visible pools. Gather adds the rows of
+	// every pool the schedule doesn't list at all, see addUnlisted
+	Unlisted []ScheduledGame
 }
 
 // NewClient builds a Client for the UltiOrganizer install at host/basePath
