@@ -1,6 +1,7 @@
 slug,event,start_date,host,live,version,original_version,legacy_flags,notes
 EBUCC2023,EBUCC 2023,2023-06-09,live.ebucc.eu,,v1.9.14,20250612.082841,-unprefixed,
 wbucc2024,WBUCC 2024,2024-10-14,live.wbucc.org,y,v1.9.14,,-season-id -unprefixed,
+WMUC2024,WMUC 2024,2024-11-10,results.wfdf.sport/wmuc,y,uo_01,,,
 ebucc2025,EBUCC 2025,2025-06-06,live.ebucc.eu,,v1.9.14,20250612.082841,-unprefixed,
 AOUC2025,AOUC 2025,2025-09-03,results.wfdf.sport/aouc,y,v1.9.14,1.8.3,-season-id,
 WWUC2025,WWUC 2025,2025-09-18,results.wfdf.sport/wwuc,y,v1.9.14,dev,,
