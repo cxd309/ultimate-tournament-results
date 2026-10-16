@@ -3,3 +3,6 @@
 
 # compiled binaries (just build)
 /dist/
+
+# jetbrains
+**/.idea/

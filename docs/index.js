@@ -5,6 +5,7 @@
  * @typedef {Object} Tournament
  * @property {string} slug
  * @property {string} event
+ * @property {string} organiser space separated, e.g. "BULA EUF"
  * @property {string} start_date
  * @property {string} host
  * @property {string} live "y" if the original deployment still serves this tournament
@@ -75,6 +76,15 @@ function formatVersion(version, original) {
 }
 
 /**
+ * Shows organisers as a list, e.g. "BULA, EUF"
+ * @param {string} organiser space separated, e.g. "BULA EUF"
+ * @returns {string}
+ */
+function formatOrganiser(organiser) {
+  return organiser.split(/\s+/).filter(Boolean).join(", ");
+}
+
+/**
  * Shows the host, linked to the original Live! deployment while it's still up
  * @param {string} host
  * @param {boolean} live
@@ -86,6 +96,15 @@ function formatHost(host, live) {
 }
 
 /**
+ * The slice of sortable.js this file uses, see that file
+ * @typedef {typeof import("./sortable.js")} Sortable
+ * @typedef {import("./sortable.js").SortState} SortState
+ */
+
+/** Date column, sorted newest first until a header is clicked */
+const defaultSort = /** @type {SortState} */ ({ column: 2, dir: "desc" });
+
+/**
  * @param {HTMLElement} tbody
  * @param {HTMLElement} status
  */
@@ -95,16 +114,14 @@ async function loadTournaments(tbody, status) {
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     const text = await res.text();
     const tournaments = papa().parse(text, { header: true, skipEmptyLines: true }).data;
-    // newest first, start_date is ISO so string compare sorts by date
-    tournaments.sort((a, b) => b.start_date.localeCompare(a.start_date));
-
     tbody.innerHTML = tournaments
       .map((t) => {
         const refURL = `archive/${t.slug}/${t.slug}_reference.json`;
         return `
           <tr>
             <td>${t.event}</td>
-            <td>${t.start_date}</td>
+            <td>${formatOrganiser(t.organiser)}</td>
+            <td class="text-nowrap">${t.start_date}</td>
             <td>${formatHost(t.host, t.live === "y")}</td>
             <td>${formatVersion(t.version, t.original_version)}</td>
             <td><a href="${refURL}"><code>${t.slug}</code></a></td>
@@ -118,6 +135,23 @@ async function loadTournaments(tbody, status) {
     status.style.display = "block";
     status.textContent = `Couldn't load tournaments.csv: ${err instanceof Error ? err.message : String(err)}`;
   }
+}
+
+/**
+ * Loads the table, then makes its headers sortable
+ * index.js isn't a module (see applyInitialTheme), so sortable.js comes in
+ * through a dynamic import rather than an import statement
+ * start_date is ISO, so its text sorts by date
+ * @param {HTMLElement} tbody
+ * @param {HTMLElement} status
+ */
+async function initTournaments(tbody, status) {
+  /** @type {Sortable} */
+  const sortable = await import("./sortable.js");
+  const sorts = new Map([["tournaments", defaultSort]]);
+  sortable.enableSorting(document.body, sorts);
+  await loadTournaments(tbody, status);
+  sortable.restoreSorts(document.body, sorts);
 }
 
 /** @returns {"light" | "dark"} */
@@ -158,7 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const tournamentsBody = document.getElementById("tournaments-body");
   const tournamentsStatus = document.getElementById("tournaments-status");
   if (tournamentsBody && tournamentsStatus) {
-    loadTournaments(tournamentsBody, tournamentsStatus);
+    initTournaments(tournamentsBody, tournamentsStatus);
   }
 
   const themeToggle = document.getElementById("theme-toggle");

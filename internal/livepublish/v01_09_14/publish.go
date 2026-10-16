@@ -11,8 +11,29 @@ import (
 
 	"github.com/cxd309/ultimate-tournament-results/internal/liveclient"
 	livepublish "github.com/cxd309/ultimate-tournament-results/internal/livepublish"
+	uostore "github.com/cxd309/ultimate-tournament-results/internal/store/uo_01"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
+
+// hideSpiritComments blanks every spirit comment unless the server showed them, as
+// the Live! API does (ShowSpiritComments). Only a uo_01-shaped archive records the
+// setting; a plain Live! archive only holds the comments the API served, so it's left
+// as it is. Unknown counts as off
+func hideSpiritComments(ctx context.Context, uo *uostore.Store, data *tournamentData) error {
+	st, ok, err := uo.GetServerSettings(ctx)
+	if err != nil {
+		return fmt.Errorf("server settings: %w", err)
+	}
+	if !ok || (st.ShowSpiritComments != nil && *st.ShowSpiritComments) {
+		return nil
+	}
+	for _, scores := range data.spiritScoresByGame {
+		for i := range scores {
+			scores[i].Comments = ""
+		}
+	}
+	return nil
+}
 
 // Publish reads back a 1.9.14-1.9.17 archive at dbPath
 // writes every endpoint's JSON under outDir/<seasonId>/
@@ -30,6 +51,9 @@ func Publish(ctx context.Context, dbPath, outDir string) error {
 	fmt.Printf("loading %s...\n", dbPath)
 	data, err := load(ctx, store.New(db))
 	if err != nil {
+		return fmt.Errorf("load %s: %w", dbPath, err)
+	}
+	if err := hideSpiritComments(ctx, uostore.New(db), data); err != nil {
 		return fmt.Errorf("load %s: %w", dbPath, err)
 	}
 

@@ -8,7 +8,7 @@ import (
 
 // readmeTableHeaders is the README table's header row
 // keep in sync with the cell order renderReadmeTable builds per tournament
-var readmeTableHeaders = []string{"Event", "Date", "Host", "Version", "[Legacy flags](#legacy-deployments)", "Archive", "Notes"}
+var readmeTableHeaders = []string{"Event", "Organiser", "Date", "Host", "Version", "[Legacy flags](#legacy-deployments)", "Archive", "Notes"}
 
 const (
 	readmeStartMarker = "<!-- tournaments:start -->"
@@ -58,6 +58,7 @@ func renderReadmeTable(tournaments []Tournament) string {
 	for _, t := range tournaments {
 		writeRow([]string{
 			t.Event,
+			strings.Join(t.Organisers, ", "),
 			t.StartDate,
 			hostCell(t.Host, t.Live),
 			formatVersion(t.Version, t.OriginalVersion),

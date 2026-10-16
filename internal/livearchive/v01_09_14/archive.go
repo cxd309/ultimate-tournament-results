@@ -15,7 +15,7 @@ import (
 // opts covers the known-unsupported deployments, see liveclient.Client
 func Archive(ctx context.Context, host, basePath, slug, dbPath string, opts livearchive.ArchiveOptions) (livearchive.Summary, error) {
 	return livearchive.Run(ctx, livearchive.Deps[*liveclient.Snapshot]{
-		SchemaPath: "db/v01_09_14/schema.sql",
+		SchemaPaths: []string{"db/v01_09_14/schema.sql"},
 		Gather: func(ctx context.Context, host, basePath string) (*liveclient.Snapshot, error) {
 			c := liveclient.NewClient(host, basePath)
 			c.SeasonIDOverride = opts.SeasonID
