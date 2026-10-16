@@ -28,7 +28,7 @@ func Archive(ctx context.Context, host, basePath, slug, dbPath string, opts live
 			if err != nil {
 				return nil, err
 			}
-			return resolve(snap, host, basePath)
+			return resolve(snap, host, basePath, false)
 		},
 		Summarize: func(r *rows) livearchive.Summary {
 			return livearchive.Summary{

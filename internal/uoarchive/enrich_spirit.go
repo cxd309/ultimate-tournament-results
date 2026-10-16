@@ -1,4 +1,4 @@
-package enrich
+package uoarchive
 
 import (
 	"fmt"
@@ -9,11 +9,8 @@ import (
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
 
-// spiritColumns are the spirit export's category columns, cat1 to cat5
-var spiritColumns = [5]string{"rules", "fouls", "fair", "positive", "com"}
-
-// archive is what match reads from the archive being enriched
-type archive struct {
+// liveArchive is what enrich reads from the Live! archive it fills in
+type liveArchive struct {
 	divisions    []store.Division
 	pools        []store.Pool
 	reservations []store.Reservation
@@ -22,20 +19,20 @@ type archive struct {
 	spirit       []store.SpiritScore
 }
 
-// change is one spirit_scores row to write: a whole new row (score), or the comment
+// spiritChange is one spirit_scores row to write: a whole new row (score), or the comment
 // of a row the Live! API served without one
-type change struct {
+type spiritChange struct {
 	score   store.SpiritScore
 	added   bool // insert the whole row
 	comment bool // only set the comment of the existing row
 }
 
-// key is what an export row has to name its game: UltiOrganizer's SpiritToCsv selects
+// exportKey is what an export row has to name its game: UltiOrganizer's SpiritToCsv selects
 // division name, reservation group, field name, HH:MM, pool name and the team names,
 // with no ids (lib/game.functions.php)
-type key struct{ division, group, field, time, pool, evaluated, by string }
+type exportKey struct{ division, group, field, time, pool, evaluated, by string }
 
-// match lines every export row up with an archived game and the spirit_scores row for
+// matchExport lines every export row up with an archived game and the spirit_scores row for
 // the team it scores, and returns what the archive is missing: rows the Live! API
 // didn't serve (one-sided submissions) and comments it served empty
 //
@@ -44,7 +41,7 @@ type key struct{ division, group, field, time, pool, evaluated, by string }
 // rows for one team, category scores or a comment that differ from what the API
 // served, a total that differs from the game's homesotg/visitorsotg, or a score the
 // API served that the export doesn't have
-func match(a archive, export []map[string]string) ([]change, error) {
+func matchExport(a liveArchive, export []map[string]string) ([]spiritChange, error) {
 	divisionName := map[int64]string{}
 	for _, d := range a.divisions {
 		divisionName[d.SeriesID] = clean(d.Name)
@@ -66,13 +63,13 @@ func match(a archive, export []map[string]string) ([]change, error) {
 		game    store.Game
 		forHome bool
 	}
-	targets := map[key][]target{}
+	targets := map[exportKey][]target{}
 	for _, g := range a.games {
 		if g.Hometeam == nil || g.Visitorteam == nil || g.Reservation == nil || g.Pool == nil || len(g.Time) < 16 {
 			continue // the export joins on all of these, a game missing one can't be in it
 		}
 		pool, res := poolByID[*g.Pool], resByID[*g.Reservation]
-		k := key{divisionName[convert.Int64OrZero(pool.Series)], clean(res.ReservationGroup), clean(res.FieldName), g.Time[11:16], clean(pool.Name), teamName[*g.Hometeam], teamName[*g.Visitorteam]}
+		k := exportKey{divisionName[convert.Int64OrZero(pool.Series)], clean(res.ReservationGroup), clean(res.FieldName), g.Time[11:16], clean(pool.Name), teamName[*g.Hometeam], teamName[*g.Visitorteam]}
 		targets[k] = append(targets[k], target{g, true})
 		k.evaluated, k.by = k.by, k.evaluated
 		targets[k] = append(targets[k], target{g, false})
@@ -85,9 +82,9 @@ func match(a archive, export []map[string]string) ([]change, error) {
 	}
 	seen := map[scoreKey]bool{}
 
-	var changes []change
+	var changes []spiritChange
 	for i, row := range export {
-		k := key{clean(row["division"]), clean(row["day"]), clean(row["field"]), clean(row["time"]), clean(row["pool"]), clean(row["team_evaluated"]), clean(row["by_team"])}
+		k := exportKey{clean(row["division"]), clean(row["day"]), clean(row["field"]), clean(row["time"]), clean(row["pool"]), clean(row["team_evaluated"]), clean(row["by_team"])}
 		where := fmt.Sprintf("spirit export row %d (%s, %s %s field %s, %s by %s)", i+1, k.division, k.group, k.time, k.field, k.evaluated, k.by)
 		ts := targets[k]
 		switch {
@@ -127,7 +124,7 @@ func match(a archive, export []map[string]string) ([]change, error) {
 		got := store.SpiritScore{GameID: g.GameID, TeamID: team, Cat1: cats[0], Cat2: cats[1], Cat3: cats[2], Cat4: cats[3], Cat5: cats[4], Comments: row["comments"]}
 		have, ok := served[sk]
 		if !ok {
-			changes = append(changes, change{score: got, added: true})
+			changes = append(changes, spiritChange{score: got, added: true})
 			continue
 		}
 		if [5]int64{have.Cat1, have.Cat2, have.Cat3, have.Cat4, have.Cat5} != cats {
@@ -136,7 +133,7 @@ func match(a archive, export []map[string]string) ([]change, error) {
 		switch {
 		case have.Comments == got.Comments || got.Comments == "":
 		case have.Comments == "":
-			changes = append(changes, change{score: got, comment: true})
+			changes = append(changes, spiritChange{score: got, comment: true})
 		default:
 			return nil, fmt.Errorf("%s: comment %q, archived %q for team %d in game %d", where, got.Comments, have.Comments, team, g.GameID)
 		}
@@ -154,10 +151,4 @@ func sotgColumn(forHome bool) string {
 		return "homesotg"
 	}
 	return "visitorsotg"
-}
-
-// clean collapses runs of whitespace, as UltiOrganizer's own pages and exports differ
-// in it
-func clean(s string) string {
-	return strings.Join(strings.Fields(s), " ")
 }

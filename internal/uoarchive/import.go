@@ -21,10 +21,7 @@ func write(ctx context.Context, tx *sql.Tx, r *rows) error {
 	if err := uo.InsertServerSettings(ctx, r.serverSettings); err != nil {
 		return fmt.Errorf("server settings: %w", err)
 	}
-	steps := []struct {
-		name string
-		run  func() error
-	}{
+	steps := []step{
 		{"divisions", each(r.divisions, func(v store.Division) error { return s.InsertDivision(ctx, v) })},
 		{"countries", each(r.countries, func(v store.Country) error { return s.InsertCountry(ctx, v) })},
 		{"locations", each(r.locations, func(v uostore.Location) error { return uo.InsertLocation(ctx, v) })},
@@ -36,6 +33,16 @@ func write(ctx context.Context, tx *sql.Tx, r *rows) error {
 		{"games", each(r.games, func(v store.Game) error { return s.InsertGame(ctx, v) })},
 		{"goals", each(r.goals, func(v store.Goal) error { return s.InsertGoal(ctx, v) })},
 		{"spirit scores", each(r.spiritScores, func(v store.SpiritScore) error { return s.InsertSpiritScore(ctx, v) })},
+	}
+	if err := runSteps(steps); err != nil {
+		return err
+	}
+	return writeExtras(ctx, uo, r)
+}
+
+// writeExtras inserts the uo_01-only tables, the ones a Live! archive has no place for
+func writeExtras(ctx context.Context, uo *uostore.Store, r *rows) error {
+	return runSteps([]step{
 		{"played", each(r.played, func(v uostore.Played) error { return uo.InsertPlayed(ctx, v) })},
 		{"game events", each(r.gameEvents, func(v uostore.GameEvent) error { return uo.InsertGameEvent(ctx, v) })},
 		{"team pools", each(r.teamPools, func(v uostore.TeamPool) error { return uo.InsertTeamPool(ctx, v) })},
@@ -45,7 +52,15 @@ func write(ctx context.Context, tx *sql.Tx, r *rows) error {
 		{"team clubs", each(r.teamClubs, func(v uostore.TeamClub) error { return uo.InsertTeamClub(ctx, v) })},
 		{"team profiles", each(r.teamProfiles, func(v uostore.TeamProfile) error { return uo.InsertTeamProfile(ctx, v) })},
 		{"urls", each(r.urls, func(v uostore.URL) error { return uo.InsertURL(ctx, v) })},
-	}
+	})
+}
+
+type step struct {
+	name string
+	run  func() error
+}
+
+func runSteps(steps []step) error {
 	for _, step := range steps {
 		if err := step.run(); err != nil {
 			return fmt.Errorf("%s: %w", step.name, err)

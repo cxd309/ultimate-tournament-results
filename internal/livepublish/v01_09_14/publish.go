@@ -11,7 +11,6 @@ import (
 
 	"github.com/cxd309/ultimate-tournament-results/internal/liveclient"
 	livepublish "github.com/cxd309/ultimate-tournament-results/internal/livepublish"
-	enrichstore "github.com/cxd309/ultimate-tournament-results/internal/store/enrich"
 	uostore "github.com/cxd309/ultimate-tournament-results/internal/store/uo_01"
 	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 )
@@ -36,41 +35,6 @@ func hideSpiritComments(ctx context.Context, uo *uostore.Store, data *tournament
 	return nil
 }
 
-// dropEnriched takes out of data's spirit scores everything `utr -mode enrich` added
-// from the UltiOrganizer export: whole rows the Live! API didn't serve, and comments
-// on rows it served without one. The published JSON is then what the API served when
-// the tournament was archived, enriched or not; a never-enriched archive is unchanged
-func dropEnriched(ctx context.Context, es *enrichstore.Store, data *tournamentData) error {
-	enriched, err := es.ListEnrichedSpirit(ctx)
-	if err != nil {
-		return fmt.Errorf("enriched spirit: %w", err)
-	}
-	type key struct{ game, team int64 }
-	added := make(map[key]enrichstore.EnrichedSpirit, len(enriched))
-	for _, e := range enriched {
-		added[key{e.GameID, e.TeamID}] = e
-	}
-	for game, scores := range data.spiritScoresByGame {
-		kept := scores[:0]
-		for _, sc := range scores {
-			e, ok := added[key{sc.GameID, sc.TeamID}]
-			if ok && e.Score {
-				continue
-			}
-			if ok && e.Comments {
-				sc.Comments = ""
-			}
-			kept = append(kept, sc)
-		}
-		if len(kept) == 0 {
-			delete(data.spiritScoresByGame, game)
-		} else {
-			data.spiritScoresByGame[game] = kept
-		}
-	}
-	return nil
-}
-
 // Publish reads back a 1.9.14-1.9.17 archive at dbPath
 // writes every endpoint's JSON under outDir/<seasonId>/
 // using the live API's own relative filenames
@@ -87,9 +51,6 @@ func Publish(ctx context.Context, dbPath, outDir string) error {
 	fmt.Printf("loading %s...\n", dbPath)
 	data, err := load(ctx, store.New(db))
 	if err != nil {
-		return fmt.Errorf("load %s: %w", dbPath, err)
-	}
-	if err := dropEnriched(ctx, enrichstore.New(db), data); err != nil {
 		return fmt.Errorf("load %s: %w", dbPath, err)
 	}
 	if err := hideSpiritComments(ctx, uostore.New(db), data); err != nil {

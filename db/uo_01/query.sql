@@ -102,3 +102,38 @@ SELECT
     *
 FROM
     server_settings;
+
+-- name: UpdateLocation :exec
+-- enrich: fills in a Live! archive's location row, which only has id/name
+UPDATE
+    locations
+SET
+    fields = sqlc.arg (fields),
+    indoor = sqlc.arg (indoor),
+    address = sqlc.arg (address),
+    lat = sqlc.arg (lat),
+    lng = sqlc.arg (lng)
+WHERE
+    id = sqlc.arg (id);
+
+-- name: UpdateReservation :exec
+-- enrich: fills in a Live! archive's reservation row, which has no times
+UPDATE
+    reservations
+SET
+    starttime = sqlc.arg (starttime),
+    endtime = sqlc.arg (endtime),
+    season = sqlc.arg (season),
+    date = sqlc.arg (date)
+WHERE
+    id = sqlc.arg (id);
+
+-- name: SetSpiritComments :exec
+-- enrich: a comment the Live! API served empty
+UPDATE
+    spirit_scores
+SET
+    comments = sqlc.arg (comments)
+WHERE
+    game_id = sqlc.arg (game_id)
+    AND team_id = sqlc.arg (team_id);

@@ -41,6 +41,10 @@ type rows struct {
 	urls         []uostore.URL
 
 	serverSettings uostore.ServerSettings
+
+	// unlinked is every scheduled game with no game id, only collected when resolve
+	// is told to allow them, see resolveGames
+	unlinked []string
 }
 
 // reservationTimeLayout is the reservation page's DefTimeFormat, "d.m.Y H:i", or
@@ -50,7 +54,9 @@ const reservationTimeLayout = "2.1.2006 15:04"
 
 const archiveTimeLayout = "2006-01-02 15:04:05"
 
-func resolve(snap *uoclient.Snapshot, host, basePath string) (*rows, error) {
+// allowUnlinked leaves scheduled games with no game id out instead of failing, for
+// enrich, whose Live! archive already has them
+func resolve(snap *uoclient.Snapshot, host, basePath string, allowUnlinked bool) (*rows, error) {
 	r := &rows{}
 	if err := r.resolveReservations(snap); err != nil {
 		return nil, fmt.Errorf("reservations: %w", err)
@@ -67,7 +73,7 @@ func resolve(snap *uoclient.Snapshot, host, basePath string) (*rows, error) {
 	if err := r.resolvePlayers(snap); err != nil {
 		return nil, fmt.Errorf("players: %w", err)
 	}
-	if err := r.resolveGames(snap); err != nil {
+	if err := r.resolveGames(snap, allowUnlinked); err != nil {
 		return nil, fmt.Errorf("games: %w", err)
 	}
 	if err := r.resolveSpirit(snap); err != nil {

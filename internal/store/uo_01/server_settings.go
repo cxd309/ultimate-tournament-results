@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cxd309/ultimate-tournament-results/internal/convert"
+	dbgen "github.com/cxd309/ultimate-tournament-results/internal/db/uo_01"
 )
 
 // ServerSettings is the plain-Go-typed form of the server_settings table's one row
@@ -40,4 +41,13 @@ func (s *Store) GetServerSettings(ctx context.Context) (st ServerSettings, ok bo
 		st.ShowSpiritComments = &b
 	}
 	return st, true, nil
+}
+
+// SetSpiritComments sets the comments of an existing spirit_scores row
+func (s *Store) SetSpiritComments(ctx context.Context, gameID, teamID int64, comments string) error {
+	return s.q.SetSpiritComments(ctx, dbgen.SetSpiritCommentsParams{
+		GameID:   gameID,
+		TeamID:   teamID,
+		Comments: convert.NullString(comments),
+	})
 }

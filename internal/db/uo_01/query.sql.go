@@ -449,3 +449,92 @@ func (q *Queries) ListTeamPools(ctx context.Context) ([]TeamPool, error) {
 	}
 	return items, nil
 }
+
+const setSpiritComments = `-- name: SetSpiritComments :exec
+UPDATE
+    spirit_scores
+SET
+    comments = ?1
+WHERE
+    game_id = ?2
+    AND team_id = ?3
+`
+
+type SetSpiritCommentsParams struct {
+	Comments sql.NullString `json:"comments"`
+	GameID   int64          `json:"game_id"`
+	TeamID   int64          `json:"team_id"`
+}
+
+// enrich: a comment the Live! API served empty
+func (q *Queries) SetSpiritComments(ctx context.Context, arg SetSpiritCommentsParams) error {
+	_, err := q.db.ExecContext(ctx, setSpiritComments, arg.Comments, arg.GameID, arg.TeamID)
+	return err
+}
+
+const updateLocation = `-- name: UpdateLocation :exec
+UPDATE
+    locations
+SET
+    fields = ?1,
+    indoor = ?2,
+    address = ?3,
+    lat = ?4,
+    lng = ?5
+WHERE
+    id = ?6
+`
+
+type UpdateLocationParams struct {
+	Fields  int64           `json:"fields"`
+	Indoor  int64           `json:"indoor"`
+	Address sql.NullString  `json:"address"`
+	Lat     sql.NullFloat64 `json:"lat"`
+	Lng     sql.NullFloat64 `json:"lng"`
+	ID      int64           `json:"id"`
+}
+
+// enrich: fills in a Live! archive's location row, which only has id/name
+func (q *Queries) UpdateLocation(ctx context.Context, arg UpdateLocationParams) error {
+	_, err := q.db.ExecContext(ctx, updateLocation,
+		arg.Fields,
+		arg.Indoor,
+		arg.Address,
+		arg.Lat,
+		arg.Lng,
+		arg.ID,
+	)
+	return err
+}
+
+const updateReservation = `-- name: UpdateReservation :exec
+UPDATE
+    reservations
+SET
+    starttime = ?1,
+    endtime = ?2,
+    season = ?3,
+    date = ?4
+WHERE
+    id = ?5
+`
+
+type UpdateReservationParams struct {
+	Starttime sql.NullString `json:"starttime"`
+	Endtime   sql.NullString `json:"endtime"`
+	Season    sql.NullString `json:"season"`
+	Date      sql.NullString `json:"date"`
+	ID        int64          `json:"id"`
+}
+
+// enrich: fills in a Live! archive's reservation row, which has no times
+func (q *Queries) UpdateReservation(ctx context.Context, arg UpdateReservationParams) error {
+	_, err := q.db.ExecContext(ctx, updateReservation,
+		arg.Starttime,
+		arg.Endtime,
+		arg.Season,
+		arg.Date,
+		arg.ID,
+	)
+	return err
+}

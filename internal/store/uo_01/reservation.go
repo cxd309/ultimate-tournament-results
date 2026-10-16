@@ -32,3 +32,15 @@ func (s *Store) InsertReservation(ctx context.Context, r Reservation) error {
 		Date:             convert.NullString(r.Date),
 	})
 }
+
+// UpdateReservation fills in the times of an existing row, e.g. one a Live! archive
+// wrote
+func (s *Store) UpdateReservation(ctx context.Context, r Reservation) error {
+	return s.q.UpdateReservation(ctx, dbgen.UpdateReservationParams{
+		ID:        r.ID,
+		Starttime: convert.NullString(r.StartTime),
+		Endtime:   convert.NullString(r.EndTime),
+		Season:    convert.NullString(r.Season),
+		Date:      convert.NullString(r.Date),
+	})
+}

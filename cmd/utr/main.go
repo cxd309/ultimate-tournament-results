@@ -13,9 +13,9 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/cxd309/ultimate-tournament-results/internal/enrich"
 	"github.com/cxd309/ultimate-tournament-results/internal/livearchive"
 	"github.com/cxd309/ultimate-tournament-results/internal/liveversion"
+	"github.com/cxd309/ultimate-tournament-results/internal/uoarchive"
 )
 
 func main() {
@@ -27,14 +27,14 @@ func main() {
 
 func run() error {
 	versionKey := flag.String("version", "", "source version to target, a Live! by BULA spec version or uo_01 for a classic UltiOrganizer site, one of: "+strings.Join(liveversion.Keys(), ", ")+" (required)")
-	mode := flag.String("mode", "all", "what to run: archive, publish, all, or enrich (fill an existing Live! archive's spirit in from its UltiOrganizer site)")
+	mode := flag.String("mode", "all", "what to run: archive, publish, all, or enrich (turn an existing Live! archive into a uo_01 one from its UltiOrganizer site)")
 	host := flag.String("host", "", "deployment host, e.g. wbuc.wfdf.sport (required for archive); enrich: the UltiOrganizer site's host (default: the archive's own)")
 	basePath := flag.String("base-path", "", "Live!: static cache base path (default /live/data/); uo_01: the UltiOrganizer install's path, e.g. /wmuc/ (required); enrich: the UltiOrganizer install's path (default: the archive's base path less live/data/)")
 	slug := flag.String("slug", "", "archive filename slug (default: the season id reported by the heartbeat, lowercased)")
 	dbPath := flag.String("db", "", "sqlite archive path: written by archive (default data/<slug>.db; must not exist), read by publish and updated by enrich (must exist)")
 	outDir := flag.String("out", "docs/archive/", "directory to render published JSON into")
 	seasonID := flag.String("season-id", "", "override the season id instead of discovering it from the heartbeat (legacy deployments only); uo_01: the season to archive, needed when the site hosts more than one")
-	cacheDir := flag.String("cache", "", "uo_01 only: directory to keep fetched pages in and reuse on a re-run, e.g. after a failed archive")
+	cacheDir := flag.String("cache", "", "uo_01 and enrich: directory to keep fetched pages in and reuse on a re-run, e.g. after a failed archive")
 	unprefixed := flag.Bool("unprefixed", false, "static JSON filenames carry no season-id prefix (legacy deployments only)")
 	flag.Parse()
 
@@ -44,7 +44,7 @@ func run() error {
 	}
 
 	// enrich defaults its source from the archive, not the version
-	src := enrich.Source{Host: *host, BasePath: *basePath, SeasonID: *seasonID}
+	enrichOpts := uoarchive.EnrichOptions{Host: *host, BasePath: *basePath, SeasonID: *seasonID, CacheDir: *cacheDir}
 	if *basePath == "" {
 		*basePath = v.DefaultBasePath
 	}
@@ -87,12 +87,12 @@ func run() error {
 
 	case "enrich":
 		if v.Enrich == nil {
-			return fmt.Errorf("-version %s has nothing to enrich, its archive already takes spirit from the UltiOrganizer export", v.Key)
+			return fmt.Errorf("-version %s has nothing to enrich, its archives already come from UltiOrganizer", v.Key)
 		}
 		if err := requireExistingDB(*dbPath); err != nil {
 			return err
 		}
-		if err := v.Enrich(ctx, *dbPath, src); err != nil {
+		if err := v.Enrich(ctx, *dbPath, enrichOpts); err != nil {
 			return fmt.Errorf("enrich: %w", err)
 		}
 		return nil

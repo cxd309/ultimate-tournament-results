@@ -30,3 +30,16 @@ func (s *Store) InsertLocation(ctx context.Context, l Location) error {
 		Lng:     convert.NullFloat64(l.Lng),
 	})
 }
+
+// UpdateLocation fills in the columns beyond id/name of an existing row, e.g. one a
+// Live! archive wrote
+func (s *Store) UpdateLocation(ctx context.Context, l Location) error {
+	return s.q.UpdateLocation(ctx, dbgen.UpdateLocationParams{
+		ID:      l.ID,
+		Fields:  l.Fields,
+		Indoor:  l.Indoor.Int64(),
+		Address: convert.NullString(l.Address),
+		Lat:     convert.NullFloat64(l.Lat),
+		Lng:     convert.NullFloat64(l.Lng),
+	})
+}

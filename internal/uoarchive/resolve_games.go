@@ -19,9 +19,10 @@ import (
 // game urls; spirit is resolveSpirit's
 //
 // A game is only archivable with the id its schedule row links to, and UltiOrganizer
-// only links games that have a scoresheet, so a game without one is an error here
-// rather than silently left out
-func (r *rows) resolveGames(snap *uoclient.Snapshot) error {
+// only links games that have a scoresheet (a forfeit has none), so a game without one
+// is an error here rather than silently left out, unless allowUnlinked, when it's
+// left out and listed in r.unlinked
+func (r *rows) resolveGames(snap *uoclient.Snapshot, allowUnlinked bool) error {
 	teamByName := map[string]int64{}
 	for _, t := range snap.Teams {
 		teamByName[t.Name] = t.TeamID
@@ -89,7 +90,9 @@ func (r *rows) resolveGames(snap *uoclient.Snapshot) error {
 			return fmt.Errorf("game %d: %w", id, err)
 		}
 	}
-	if len(missing) > 0 {
+	if allowUnlinked {
+		r.unlinked = missing
+	} else if len(missing) > 0 {
 		return fmt.Errorf("%d scheduled games have no game id (no scoresheet entered), first: %s", len(missing), missing[0])
 	}
 	for _, id := range snap.GameIDs() {
