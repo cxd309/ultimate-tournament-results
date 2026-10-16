@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // WriteDocsCSV writes a copy of tournaments for homepage
@@ -28,7 +29,7 @@ func WriteDocsCSV(tournaments []Tournament, path string) (err error) {
 		if t.Live {
 			live = "y"
 		}
-		row := []string{t.Slug, t.Event, t.StartDate, t.Host, live, t.Version, t.OriginalVersion, t.LegacyFlags, t.Notes}
+		row := []string{t.Slug, t.Event, strings.Join(t.Organisers, " "), t.StartDate, t.Host, live, t.Version, t.OriginalVersion, t.LegacyFlags, t.Notes}
 		if err := w.Write(row); err != nil {
 			return err
 		}

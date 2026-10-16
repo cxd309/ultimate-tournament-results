@@ -111,7 +111,6 @@ CREATE TABLE urls (
     mediaowner text -- varchar(100)
 );
 
-
 -- server settings, one row
 -- showspiritcomments is the server's ShowSpiritComments, which UltiOrganizer's game
 -- pages and the Live! API both follow: a game page with both spirit scores shows a
@@ -120,3 +119,4 @@ CREATE TABLE urls (
 CREATE TABLE server_settings (
     showspiritcomments integer -- tinyint(1)
 );
+

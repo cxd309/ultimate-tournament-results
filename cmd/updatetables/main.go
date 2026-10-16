@@ -38,6 +38,7 @@ func run() error {
 type Tournament struct {
 	Slug            string
 	Event           string
+	Organisers      []string // bodies that ran the tournament, space separated in csv, e.g. "BULA EUF"
 	StartDate       string
 	Host            string
 	Live            bool   // original deployment still serves this tournament, "y" in csv
@@ -50,4 +51,7 @@ type Tournament struct {
 // csvHeader is written to docs/tournaments.csv
 // and checked against tournaments.csv
 // keep in sync with the Tournament struct field order
-var csvHeader = []string{"slug", "event", "start_date", "host", "live", "version", "original_version", "legacy_flags", "notes"}
+var csvHeader = []string{"slug", "event", "organiser", "start_date", "host", "live", "version", "original_version", "legacy_flags", "notes"}
+
+// organisers are the bodies accepted in tournaments.csv's organiser column
+var organisers = map[string]bool{"WFDF": true, "EUF": true, "UKU": true, "BULA": true}

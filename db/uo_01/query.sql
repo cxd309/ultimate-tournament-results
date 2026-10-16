@@ -92,7 +92,6 @@ INSERT INTO team_profiles (team_id, coach, captain, story, achievements, profile
 INSERT INTO urls (owner, owner_id, type, name, url, ismedialink, mediaowner)
     VALUES (sqlc.arg (owner), sqlc.arg (owner_id), sqlc.arg (type), sqlc.arg (name), sqlc.arg (url), sqlc.arg (ismedialink), sqlc.arg (mediaowner));
 
-
 -- name: InsertServerSettings :exec
 INSERT INTO server_settings (showspiritcomments)
     VALUES (sqlc.arg (showspiritcomments));
@@ -137,3 +136,4 @@ SET
 WHERE
     game_id = sqlc.arg (game_id)
     AND team_id = sqlc.arg (team_id);
+
