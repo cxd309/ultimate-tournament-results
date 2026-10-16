@@ -32,3 +32,15 @@ sql:
         sql_package: "database/sql"
         emit_json_tags: true
         emit_prepared_queries: false
+  - engine: "sqlite"
+    schema:
+      - "db/v01_09_14/schema.sql"
+      - "db/enrich/schema.sql"
+    queries: "db/enrich/query.sql"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db/enrich"
+        sql_package: "database/sql"
+        emit_json_tags: true
+        emit_prepared_queries: false
