@@ -20,11 +20,12 @@ import (
 // ArchiveOptions carries per-run overrides for deployments that don't follow a
 // version's normal conventions
 // every field's zero value means "behave normally"
-// currently only meaningful to v01_09_14's Client, other versions accept and
-// ignore it
+// SeasonID/Unprefixed are only meaningful to v01_09_14's Client and SeasonID/CacheDir
+// to uo_01's, other versions accept and ignore them
 type ArchiveOptions struct {
 	SeasonID   string // override instead of discovering it from the heartbeat
 	Unprefixed bool   // static filenames carry no season-id prefix
+	CacheDir   string // keep fetched pages here and reuse them on a re-run
 }
 
 // Summary is what's reported back to the caller (and printed) once Archive finishes
@@ -46,8 +47,9 @@ type Summary struct {
 // S is that version's Snapshot type
 // Run never inspects it directly, only threads it between Gather, Summarize and Import
 type Deps[S any] struct {
-	// SchemaPath is the db/vXX/schema.sql file to apply to a freshly created archive
-	SchemaPath string
+	// SchemaPaths are the db/vXX/schema.sql files to apply, in order, to a freshly
+	// created archive; more than one when a version extends another's schema
+	SchemaPaths []string
 
 	// Gather builds a Client for host/basePath and fetches everything the archive needs
 	Gather func(ctx context.Context, host, basePath string) (S, error)
@@ -90,19 +92,20 @@ func Run[S any](ctx context.Context, deps Deps[S], host, basePath, slug, dbPath 
 		return Summary{}, fmt.Errorf("check %s: %w", dbPath, err)
 	}
 
-	schema, err := os.ReadFile(deps.SchemaPath)
-	if err != nil {
-		return Summary{}, fmt.Errorf("read schema: %w", err)
-	}
-
 	sqlDB, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return Summary{}, fmt.Errorf("create %s: %w", dbPath, err)
 	}
 	defer func() { _ = sqlDB.Close() }()
 
-	if _, err := sqlDB.Exec(string(schema)); err != nil {
-		return Summary{}, fmt.Errorf("apply schema: %w", err)
+	for _, path := range deps.SchemaPaths {
+		schema, err := os.ReadFile(path)
+		if err != nil {
+			return Summary{}, fmt.Errorf("read schema: %w", err)
+		}
+		if _, err := sqlDB.Exec(string(schema)); err != nil {
+			return Summary{}, fmt.Errorf("apply schema %s: %w", path, err)
+		}
 	}
 
 	// One transaction for the whole import
