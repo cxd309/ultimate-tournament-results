@@ -28,10 +28,10 @@ import (
 	"github.com/cxd309/ultimate-tournament-results/internal/liveclient"
 )
 
-// DefaultMinRequestInterval is the minimum time Client leaves between requests
-// slower than liveclient's: every request here is a full PHP page render, not a
-// cached static file
-const DefaultMinRequestInterval = 250 * time.Millisecond
+// DefaultMinRequestInterval is the minimum time Client leaves between requests,
+// 10 a second: every request here is a full PHP page render, not a cached static
+// file, and these are small servers often running other events at the same time
+const DefaultMinRequestInterval = 100 * time.Millisecond
 
 // locale pins every page to English, see the package doc
 const locale = "en_GB.utf8"
