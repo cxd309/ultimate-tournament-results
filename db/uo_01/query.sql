@@ -1,147 +1,94 @@
--- name: InsertTournament :exec
-INSERT INTO tournament (season_id, name, starttime, endtime, iscurrent, type, isinternational, isnationalteams, timezone, host, base_path, app_version, archived_at)
-    VALUES (sqlc.arg (season_id), sqlc.arg (name), sqlc.arg (starttime), sqlc.arg (endtime), sqlc.arg (iscurrent), sqlc.arg (type), sqlc.arg (isinternational), sqlc.arg (isnationalteams), sqlc.arg (timezone), sqlc.arg (host), sqlc.arg (base_path), sqlc.arg (app_version), sqlc.arg (archived_at));
-
--- name: GetTournament :one
-SELECT
-    *
-FROM
-    tournament;
-
--- name: InsertDivision :exec
-INSERT INTO divisions (series_id, name, ordering)
-    VALUES (sqlc.arg (series_id), sqlc.arg (name), sqlc.arg (ordering));
-
--- name: ListDivisions :many
-SELECT
-    *
-FROM
-    divisions
-ORDER BY
-    series_id;
-
--- name: InsertCountry :exec
-INSERT INTO countries (country_id, name, abbreviation, flag_file)
-    VALUES (sqlc.arg (country_id), sqlc.arg (name), sqlc.arg (abbreviation), sqlc.arg (flag_file));
-
--- name: ListCountries :many
-SELECT
-    *
-FROM
-    countries
-ORDER BY
-    country_id;
-
+-- uo_01 only adds queries the v01_09_14 store has no equivalent for: every other
+-- shared table is written through store/v01_09_14 unchanged
+--
 -- name: InsertLocation :exec
-INSERT INTO locations (id, name)
-    VALUES (sqlc.arg (id), sqlc.arg (name));
-
--- name: ListLocations :many
-SELECT
-    *
-FROM
-    locations
-ORDER BY
-    id;
+-- the v01_09_14 insert only takes id/name, the Live! API exposes nothing more
+INSERT INTO locations (id, name, fields, indoor, address, lat, lng)
+    VALUES (sqlc.arg (id), sqlc.arg (name), sqlc.arg (fields), sqlc.arg (indoor), sqlc.arg (address), sqlc.arg (lat), sqlc.arg (lng));
 
 -- name: InsertReservation :exec
-INSERT INTO reservations (id, location, fieldname, reservationgroup)
-    VALUES (sqlc.arg (id), sqlc.arg (location), sqlc.arg (fieldname), sqlc.arg (reservationgroup));
+-- the v01_09_14 insert has no times, the Live! API exposes none
+INSERT INTO reservations (id, location, fieldname, reservationgroup, starttime, endtime, season, date)
+    VALUES (sqlc.arg (id), sqlc.arg (location), sqlc.arg (fieldname), sqlc.arg (reservationgroup), sqlc.arg (starttime), sqlc.arg (endtime), sqlc.arg (season), sqlc.arg (date));
 
--- name: ListReservations :many
+-- name: InsertPlayed :exec
+INSERT INTO played (game_id, player_id, num, captain)
+    VALUES (sqlc.arg (game_id), sqlc.arg (player_id), sqlc.arg (num), sqlc.arg (captain));
+
+-- name: ListPlayed :many
 SELECT
     *
 FROM
-    reservations
+    played
 ORDER BY
-    id;
-
--- name: InsertPool :exec
--- teams to follower are only known once a game in this pool has been fetched
--- (they come from that game detail's poolinfo, not the reference endpoint's own pools[])
--- absent for a pool with no games, e.g. an unused placeholder bracket pool
-INSERT INTO pools (pool_id, name, ordering, visible, continuingpool, placementpool, played, series, type, color, timeslot, teams, mvgames, timeoutlen, halftime, winningscore, timecap, scorecap, addscore, halftimescore, timeouts, timeoutsper, timeoutsovertime, timeoutstimecap, betweenpointslen, forfeitscore, forfeitagainst, follower)
-    VALUES (sqlc.arg (pool_id), sqlc.arg (name), sqlc.arg (ordering), sqlc.arg (visible), sqlc.arg (continuingpool), sqlc.arg (placementpool), sqlc.arg (played), sqlc.arg (series), sqlc.arg (type), sqlc.arg (color), sqlc.arg (timeslot), sqlc.arg (teams), sqlc.arg (mvgames), sqlc.arg (timeoutlen), sqlc.arg (halftime), sqlc.arg (winningscore), sqlc.arg (timecap), sqlc.arg (scorecap), sqlc.arg (addscore), sqlc.arg (halftimescore), sqlc.arg (timeouts), sqlc.arg (timeoutsper), sqlc.arg (timeoutsovertime), sqlc.arg (timeoutstimecap), sqlc.arg (betweenpointslen), sqlc.arg (forfeitscore), sqlc.arg (forfeitagainst), sqlc.arg (follower));
-
--- name: ListPools :many
-SELECT
-    *
-FROM
-    pools
-ORDER BY
-    pool_id;
-
--- name: InsertTeam :exec
-INSERT INTO teams (team_id, name, pool, rank, valid, series, country, abbreviation, final_standing, final_standing_calculated, club_name)
-    VALUES (sqlc.arg (team_id), sqlc.arg (name), sqlc.arg (pool), sqlc.arg (rank), sqlc.arg (valid), sqlc.arg (series), sqlc.arg (country), sqlc.arg (abbreviation), sqlc.arg (final_standing), sqlc.arg (final_standing_calculated), sqlc.arg (club_name));
-
--- name: ListTeams :many
-SELECT
-    *
-FROM
-    teams
-ORDER BY
-    team_id;
-
--- name: InsertPlayer :exec
-INSERT INTO players (player_id, firstname, lastname, team, num, games_played)
-    VALUES (sqlc.arg (player_id), sqlc.arg (firstname), sqlc.arg (lastname), sqlc.arg (team), sqlc.arg (num), sqlc.arg (games_played));
-
--- name: ListPlayers :many
-SELECT
-    *
-FROM
-    players
-ORDER BY
+    game_id,
     player_id;
 
--- name: InsertSchedulingName :exec
-INSERT INTO scheduling_names (scheduling_id, name)
-    VALUES (sqlc.arg (scheduling_id), sqlc.arg (name));
+-- name: InsertGameEvent :exec
+INSERT INTO game_events (game_id, num, time, type, ishome)
+    VALUES (sqlc.arg (game_id), sqlc.arg (num), sqlc.arg (time), sqlc.arg (type), sqlc.arg (ishome));
 
--- name: ListSchedulingNames :many
+-- name: ListGameEvents :many
 SELECT
     *
 FROM
-    scheduling_names
-ORDER BY
-    scheduling_id;
-
--- name: InsertGame :exec
-INSERT INTO games (game_id, hometeam, visitorteam, homescore, visitorscore, reservation, time, pool, valid, halftime, official, respteam, resppers, homesotg, visitorsotg, isongoing, scheduling_name_home, scheduling_name_visitor, name, timeslot, homedefenses, visitordefenses, islive, liveurl)
-    VALUES (sqlc.arg (game_id), sqlc.arg (hometeam), sqlc.arg (visitorteam), sqlc.arg (homescore), sqlc.arg (visitorscore), sqlc.arg (reservation), sqlc.arg (time), sqlc.arg (pool), sqlc.arg (valid), sqlc.arg (halftime), sqlc.arg (official), sqlc.arg (respteam), sqlc.arg (resppers), sqlc.arg (homesotg), sqlc.arg (visitorsotg), sqlc.arg (isongoing), sqlc.arg (scheduling_name_home), sqlc.arg (scheduling_name_visitor), sqlc.arg (name), sqlc.arg (timeslot), sqlc.arg (homedefenses), sqlc.arg (visitordefenses), sqlc.arg (islive), sqlc.arg (liveurl));
-
--- name: ListGames :many
-SELECT
-    *
-FROM
-    games
-ORDER BY
-    game_id;
-
--- name: InsertGoal :exec
-INSERT INTO goals (game_id, num, assist, scorer, time, homescore, visitorscore, ishomegoal, iscallahan)
-    VALUES (sqlc.arg (game_id), sqlc.arg (num), sqlc.arg (assist), sqlc.arg (scorer), sqlc.arg (time), sqlc.arg (homescore), sqlc.arg (visitorscore), sqlc.arg (ishomegoal), sqlc.arg (iscallahan));
-
--- name: ListGoals :many
-SELECT
-    *
-FROM
-    goals
+    game_events
 ORDER BY
     game_id,
     num;
 
--- name: InsertSpiritScore :exec
-INSERT INTO spirit_scores (game_id, team_id, cat1, cat2, cat3, cat4, cat5, comments)
-    VALUES (sqlc.arg (game_id), sqlc.arg (team_id), sqlc.arg (cat1), sqlc.arg (cat2), sqlc.arg (cat3), sqlc.arg (cat4), sqlc.arg (cat5), sqlc.arg (comments));
+-- name: InsertTeamPool :exec
+INSERT INTO team_pools (team_id, pool_id, activerank)
+    VALUES (sqlc.arg (team_id), sqlc.arg (pool_id), sqlc.arg (activerank));
 
--- name: ListSpiritScores :many
+-- name: ListTeamPools :many
 SELECT
     *
 FROM
-    spirit_scores
+    team_pools
+ORDER BY
+    team_id,
+    pool_id;
+
+-- name: InsertGamePool :exec
+INSERT INTO game_pools (game_id, pool_id)
+    VALUES (sqlc.arg (game_id), sqlc.arg (pool_id));
+
+-- name: ListGamePools :many
+SELECT
+    *
+FROM
+    game_pools
 ORDER BY
     game_id,
-    team_id;
+    pool_id;
+
+-- name: InsertMoveTeam :exec
+INSERT INTO move_teams (frompool, fromplacing, topool)
+    VALUES (sqlc.arg (frompool), sqlc.arg (fromplacing), sqlc.arg (topool));
+
+-- name: ListMoveTeams :many
+SELECT
+    *
+FROM
+    move_teams
+ORDER BY
+    frompool,
+    fromplacing;
+
+-- name: InsertClub :exec
+INSERT INTO clubs (club_id, name)
+    VALUES (sqlc.arg (club_id), sqlc.arg (name));
+
+-- name: InsertTeamClub :exec
+INSERT INTO team_clubs (team_id, club_id)
+    VALUES (sqlc.arg (team_id), sqlc.arg (club_id));
+
+-- name: InsertTeamProfile :exec
+INSERT INTO team_profiles (team_id, coach, captain, story, achievements, profile_image)
+    VALUES (sqlc.arg (team_id), sqlc.arg (coach), sqlc.arg (captain), sqlc.arg (story), sqlc.arg (achievements), sqlc.arg (profile_image));
+
+-- name: InsertURL :exec
+INSERT INTO urls (owner, owner_id, type, name, url, ismedialink, mediaowner)
+    VALUES (sqlc.arg (owner), sqlc.arg (owner_id), sqlc.arg (type), sqlc.arg (name), sqlc.arg (url), sqlc.arg (ismedialink), sqlc.arg (mediaowner));
 
