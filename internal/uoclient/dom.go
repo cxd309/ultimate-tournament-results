@@ -108,6 +108,17 @@ func rawText(n *html.Node) string {
 	return b.String()
 }
 
+// scriptText is the source of a <script> element, which rawText leaves out
+func scriptText(n *html.Node) string {
+	var b strings.Builder
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.TextNode {
+			b.WriteString(c.Data)
+		}
+	}
+	return b.String()
+}
+
 var spaceRun = regexp.MustCompile(`\s+`)
 
 // text is n's text content with non-breaking spaces as plain spaces, whitespace

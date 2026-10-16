@@ -131,3 +131,18 @@ func TestParsePoolRoundRobin(t *testing.T) {
 		t.Errorf("continuations/games %+v %v", p.ContinuesTo, p.GameIDs)
 	}
 }
+
+func TestParseReservation(t *testing.T) {
+	doc := parse(t, `<html><head><script type="text/javascript">
+		var searchUrl = 'ext/locationxml.php?id=1';
+		searchLocations(searchUrl);
+</script></head><body><div class='content'><h1>Highfields Field H01</h1>
+<p>28.6.2026 09:00 - 18:30</p><p>Highfields Road</p><p></p></div></body></html>`)
+	r, err := parseReservation(doc, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.LocationID != 1 || r.Heading != "Highfields Field H01" || r.Times != "28.6.2026 09:00 - 18:30" || r.Address != "Highfields Road" {
+		t.Errorf("reservation %+v", r)
+	}
+}

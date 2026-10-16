@@ -150,7 +150,7 @@ var locationIDPattern = regexp.MustCompile(`locationxml\.php\?id=(\d+)`)
 func parseReservation(doc *html.Node, id int64) (ReservationPage, error) {
 	r := ReservationPage{ReservationID: id}
 	for _, script := range findAll(doc, tag("script")) {
-		if m := locationIDPattern.FindStringSubmatch(rawText(script)); m != nil {
+		if m := locationIDPattern.FindStringSubmatch(scriptText(script)); m != nil {
 			r.LocationID, _ = strconv.ParseInt(m[1], 10, 64)
 		}
 	}
