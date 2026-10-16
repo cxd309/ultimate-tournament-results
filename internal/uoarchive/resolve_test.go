@@ -3,6 +3,7 @@ package uoarchive
 import (
 	"testing"
 
+	store "github.com/cxd309/ultimate-tournament-results/internal/store/v01_09_14"
 	"github.com/cxd309/ultimate-tournament-results/internal/uoclient"
 )
 
@@ -47,5 +48,50 @@ func TestResolveRef(t *testing.T) {
 	}
 	if _, err := resolveRef(board, uoclient.PlayerRef{Name: "Nobody"}); err == nil {
 		t.Error("unknown name resolved")
+	}
+}
+
+func TestResolveSpirit(t *testing.T) {
+	id := func(n int64) *int64 { return &n }
+	snap := &uoclient.Snapshot{
+		Schedule: []uoclient.ScheduledGame{
+			{GameID: id(1), Division: "Open", ReservationGroup: "Sunday", FieldLabel: "Field 0", Time: "09:00", PoolName: "Pool A", Home: "Red", Visitor: "Blue"},
+			{GameID: id(2), Division: "Open", ReservationGroup: "Sunday", FieldLabel: "Field 0", Time: "11:00", PoolName: "Pool A", Home: "Blue", Visitor: "Red"},
+		},
+		Games: map[int64]uoclient.GamePage{
+			1: {GameID: 1, Spirit: &uoclient.GameSpirit{Home: [5]int64{2, 2, 2, 2, 2}, Visitor: [5]int64{1, 2, 3, 2, 1}}},
+			2: {GameID: 2},
+		},
+		SpiritCSV: []map[string]string{
+			{"division": "Open", "day": "Sunday", "field": "0 ", "time": "09:00", "pool": "Pool A", "team_evaluated": "Red", "by_team": "Blue", "rules": "2", "fouls": "2", "fair": "2", "positive": "2", "com": "2", "comments": ""},
+			{"division": "Open", "day": "Sunday", "field": "0 ", "time": "09:00", "pool": "Pool A", "team_evaluated": "Blue", "by_team": "Red", "rules": "1", "fouls": "2", "fair": "3", "positive": "2", "com": "1", "comments": "thanks"},
+			// game 2: only Blue's opponent has submitted, hidden on the game page
+			{"division": "Open", "day": "Sunday", "field": "0 ", "time": "11:00", "pool": "Pool A", "team_evaluated": "Blue", "by_team": "Red", "rules": "3", "fouls": "3", "fair": "3", "positive": "3", "com": "3", "comments": "great"},
+		},
+	}
+	newRows := func() *rows {
+		return &rows{games: []store.Game{
+			{GameID: 1, Hometeam: id(10), Visitorteam: id(20)},
+			{GameID: 2, Hometeam: id(20), Visitorteam: id(10)},
+		}}
+	}
+
+	r := newRows()
+	if err := r.resolveSpirit(snap); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.spiritScores) != 3 {
+		t.Fatalf("%d spirit scores, want 3 (one-sided game 2 included)", len(r.spiritScores))
+	}
+	if g2 := r.games[1]; g2.Homesotg == nil || *g2.Homesotg != 15 || g2.Visitorsotg != nil {
+		t.Errorf("game 2 sotg %v %v, want home 15 and visitor unset", g2.Homesotg, g2.Visitorsotg)
+	}
+	if c := r.spiritScores[1]; c.TeamID != 20 || c.Comments != "thanks" {
+		t.Errorf("comments not kept: %+v", c)
+	}
+
+	snap.SpiritCSV[0]["rules"] = "4"
+	if err := newRows().resolveSpirit(snap); err == nil {
+		t.Error("an export score disagreeing with the game page was accepted")
 	}
 }

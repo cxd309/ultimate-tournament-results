@@ -66,6 +66,9 @@ func resolve(snap *uoclient.Snapshot, host, basePath string) (*rows, error) {
 	if err := r.resolveGames(snap); err != nil {
 		return nil, fmt.Errorf("games: %w", err)
 	}
+	if err := r.resolveSpirit(snap); err != nil {
+		return nil, fmt.Errorf("spirit: %w", err)
+	}
 	r.resolveTeamPools(snap)
 	r.resolveGamePools(snap)
 	r.resolveMoveTeams(snap)

@@ -98,7 +98,7 @@ Where UltiOrganizer shows something only indirectly, the archive notes how it wa
 - the season's start/end are its first and last reservation, and its type isn't shown at all
 - pool type is read from how the pool page renders, and a pool's rules (winning score, caps, timeouts) aren't shown
 - home/visitor slot names (e.g. "Winner QF1") have no id anywhere, so they get synthetic negative ids
-- spirit comments are only archived when the game page itself shows them, not from the CSV export
+- spirit comes from the `ext/spiritcsv.php` export when the site serves it: every submitted score with its comments, including games where only one team has submitted (the game page hides those until both have). Where a site locks the export, it falls back to the game pages, which only show two-sided scores and show comments only if the season enables it
 - a game with a result but no scoresheet has no id anywhere, so archiving stops with an error rather than leave it out
 
 ## Archived tournaments

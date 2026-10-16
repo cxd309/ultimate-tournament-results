@@ -14,8 +14,8 @@ import (
 	"github.com/cxd309/ultimate-tournament-results/internal/uoclient"
 )
 
-// resolveGames fills games, scheduling names, goals, spirit scores, played,
-// game events and game urls
+// resolveGames fills games, scheduling names, goals, played, game events and
+// game urls; spirit is resolveSpirit's
 //
 // A game is only archivable with the id its schedule row links to, and UltiOrganizer
 // only links games that have a scoresheet, so a game without one is an error here
@@ -82,13 +82,6 @@ func (r *rows) resolveGames(snap *uoclient.Snapshot) error {
 		game.SchedulingNameHome = slotID(slotIDs, row["HomeSchedulingName"])
 		game.SchedulingNameVisitor = slotID(slotIDs, row["AwaySchedulingName"])
 
-		if page.Spirit != nil && game.Hometeam != nil && game.Visitorteam != nil {
-			home, visitor := sum(page.Spirit.Home), sum(page.Spirit.Visitor)
-			game.Homesotg, game.Visitorsotg = &home, &visitor
-			r.spiritScores = append(r.spiritScores,
-				spiritScore(id, *game.Hometeam, page.Spirit.Home, page.Spirit.HomeComments),
-				spiritScore(id, *game.Visitorteam, page.Spirit.Visitor, page.Spirit.VisitorComments))
-		}
 		r.games = append(r.games, game)
 
 		if err := r.resolveGameDetail(id, game, page, playerTeam); err != nil {
