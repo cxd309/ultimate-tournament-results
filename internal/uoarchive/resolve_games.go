@@ -18,10 +18,13 @@ import (
 // resolveGames fills games, scheduling names, goals, played, game events and
 // game urls; spirit is resolveSpirit's
 //
-// A game is only archivable with the id its schedule row links to, and UltiOrganizer
-// only links games that have a scoresheet (a forfeit has none), so a game without one
-// is an error here rather than silently left out, unless allowUnlinked, when it's
-// left out and listed in r.unlinked
+// UltiOrganizer only links a game from its schedule row once it has a scoresheet, and
+// no page shows the id of one without: a game played without stats (just its result,
+// and any spirit), a forfeit, or one never played. Each gets a synthetic id here,
+// negative so it can never be mistaken for one of UltiOrganizer's own, written back
+// to its schedule row so spirit finds it; it has no goals, played or events. With
+// allowUnlinked they're left out instead and listed in r.unlinked, for enrich, whose
+// Live! archive already has them
 func (r *rows) resolveGames(snap *uoclient.Snapshot, allowUnlinked bool) error {
 	teamByName := map[string]int64{}
 	for _, t := range snap.Teams {
@@ -33,14 +36,21 @@ func (r *rows) resolveGames(snap *uoclient.Snapshot, allowUnlinked bool) error {
 	}
 
 	var missing []string
+	var noSheet int64
 	scheduled := map[int64]bool{}
 	gameNames := map[int64]string{}
 	slotIDs := map[string]int64{}
 
-	for _, g := range snap.Schedule {
+	for i := range snap.Schedule {
+		g := &snap.Schedule[i]
 		if g.GameID == nil {
-			missing = append(missing, fmt.Sprintf("%s %s %s - %s (%s %s)", g.ReservationGroup, g.Time, g.Home, g.Visitor, g.Division, g.PoolName))
-			continue
+			if allowUnlinked {
+				missing = append(missing, fmt.Sprintf("%s %s %s - %s (%s %s)", g.ReservationGroup, g.Time, g.Home, g.Visitor, g.Division, g.PoolName))
+				continue
+			}
+			noSheet++
+			id := -noSheet
+			g.GameID = &id
 		}
 		id := *g.GameID
 		if scheduled[id] {
@@ -48,10 +58,10 @@ func (r *rows) resolveGames(snap *uoclient.Snapshot, allowUnlinked bool) error {
 		}
 		scheduled[id] = true
 		page, ok := snap.Games[id]
-		if !ok {
+		if !ok && id > 0 {
 			return fmt.Errorf("game %d: page not gathered", id)
 		}
-		row := csvRowFor(snap, g)
+		row := csvRowFor(snap, *g)
 		if row == nil {
 			return fmt.Errorf("game %d: no games CSV row for %s %s %s - %s", id, g.ReservationGroup, g.Time, g.Home, g.Visitor)
 		}
@@ -90,10 +100,9 @@ func (r *rows) resolveGames(snap *uoclient.Snapshot, allowUnlinked bool) error {
 			return fmt.Errorf("game %d: %w", id, err)
 		}
 	}
-	if allowUnlinked {
-		r.unlinked = missing
-	} else if len(missing) > 0 {
-		return fmt.Errorf("%d scheduled games have no game id (no scoresheet entered), first: %s", len(missing), missing[0])
+	r.unlinked = missing
+	if noSheet > 0 {
+		fmt.Printf("  %d games have no scoresheet, kept with their result only under synthetic ids -1 to -%d\n", noSheet, noSheet)
 	}
 	for _, id := range snap.GameIDs() {
 		if !scheduled[id] {

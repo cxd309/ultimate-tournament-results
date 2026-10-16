@@ -168,3 +168,50 @@ func TestResolvePlayersFromScoreboard(t *testing.T) {
 		t.Error("name on the team twice in the CSV resolved")
 	}
 }
+
+func TestResolveGamesWithoutScoresheet(t *testing.T) {
+	id := func(n int64) *int64 { return &n }
+	newSnap := func() *uoclient.Snapshot {
+		return &uoclient.Snapshot{
+			Teams: []uoclient.TeamListEntry{{TeamID: 10, Name: "Red"}, {TeamID: 20, Name: "Blue"}},
+			Schedule: []uoclient.ScheduledGame{
+				{GameID: id(5), ReservationID: 1, ReservationGroup: "Saturday", FieldLabel: "Field 1", Time: "09:00", Home: "Red", Visitor: "Blue", HomeScore: id(15), VisitorScore: id(8), PoolID: 3},
+				{ReservationID: 1, ReservationGroup: "Saturday", FieldLabel: "Field 1", Time: "11:00", Home: "Blue", Visitor: "Red", HomeScore: id(13), VisitorScore: id(11), PoolID: 3},
+				{ReservationID: 1, ReservationGroup: "Saturday", FieldLabel: "Field 1", Time: "13:00", Home: "Red", Visitor: "Blue", PoolID: 3},
+			},
+			Games: map[int64]uoclient.GamePage{5: {GameID: 5, HasScoresheet: true}},
+			GamesCSV: []map[string]string{
+				{"Time": "2026-07-25 09:00:00", "HomeTeam": "Red", "AwayTeam": "Blue", "Field": "1", "ReservationGroup": "Saturday"},
+				{"Time": "2026-07-25 11:00:00", "HomeTeam": "Blue", "AwayTeam": "Red", "Field": "1", "ReservationGroup": "Saturday"},
+				{"Time": "2026-07-25 13:00:00", "HomeTeam": "Red", "AwayTeam": "Blue", "Field": "1", "ReservationGroup": "Saturday"},
+			},
+		}
+	}
+
+	snap := newSnap()
+	r := &rows{}
+	if err := r.resolveGames(snap, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.games) != 3 || r.games[0].GameID != -2 || r.games[1].GameID != -1 || r.games[2].GameID != 5 {
+		t.Fatalf("games %+v, want synthetic -2, -1 and linked 5", r.games)
+	}
+	played := r.games[1]
+	if *played.Hometeam != 20 || *played.Visitorteam != 10 || *played.Homescore != 13 || *played.Visitorscore != 11 || played.Time != "2026-07-25 11:00:00" {
+		t.Errorf("result-only game %+v", played)
+	}
+	if unplayed := r.games[0]; unplayed.Homescore != nil || unplayed.Visitorscore != nil {
+		t.Errorf("unplayed game got a score: %+v", unplayed)
+	}
+	if g := snap.Schedule[1].GameID; g == nil || *g != -1 {
+		t.Errorf("schedule row not given its synthetic id for spirit: %v", g)
+	}
+
+	r = &rows{}
+	if err := r.resolveGames(newSnap(), true); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.games) != 1 || len(r.unlinked) != 2 {
+		t.Errorf("allowUnlinked: %d games, %d unlinked; want 1 and 2", len(r.games), len(r.unlinked))
+	}
+}

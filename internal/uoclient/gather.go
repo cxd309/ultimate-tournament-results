@@ -240,15 +240,21 @@ func (c *Client) gatherPools(ctx context.Context, snap *Snapshot) error {
 	return nil
 }
 
-// isGamePage is whether a page is a game's view=gameplay, which links the game's
-// gamecard; a pool page never does
+// isGamePage is whether a page is a game's view=gameplay, headed by an <h1> of its
+// teams and score; a pool page heads with an <h2>. Neither link tells them apart: a
+// game with no scoresheet fed in has no gamecard link, and a pool's unplayed games
+// link theirs
 func isGamePage(doc *html.Node) bool {
-	return first(links(content(doc), "gamecard")) != nil
+	h := find(content(doc), func(n *html.Node) bool {
+		return n.Type == html.ElementNode && (n.Data == "h1" || n.Data == "h2")
+	})
+	return h != nil && h.Data == "h1"
 }
 
 // singleGamePool is a round-robin pool with exactly one game, whose poolstatus
 // redirects to that game's gameplay page, so the pool itself is never shown: its name
-// is the left menu's and its game the one schedule row in it. It has no standings
+// is the left menu's and its game the one schedule row in it. It has no standings, and
+// no games when that row isn't linked (a game with no scoresheet)
 func singleGamePool(snap *Snapshot, id int64) (PoolPage, error) {
 	p := PoolPage{PoolID: id, Type: PoolTypeRoundRobin}
 	for _, d := range snap.Menu.Divisions {
@@ -261,16 +267,19 @@ func singleGamePool(snap *Snapshot, id int64) (PoolPage, error) {
 	if p.Heading == "" {
 		return p, fmt.Errorf("pool %d: shows a game page, but isn't in the left menu to name it", id)
 	}
+	scheduled := 0
 	for _, g := range snap.Schedule {
 		if g.PoolID != id {
 			continue
 		}
-		if g.GameID == nil || len(p.GameIDs) > 0 {
-			return p, fmt.Errorf("pool %d: shows a game page, but doesn't schedule exactly one linked game", id)
+		if scheduled++; scheduled > 1 {
+			return p, fmt.Errorf("pool %d: shows a game page, but schedules more than one game", id)
 		}
-		p.GameIDs = []int64{*g.GameID}
+		if g.GameID != nil {
+			p.GameIDs = []int64{*g.GameID}
+		}
 	}
-	if len(p.GameIDs) == 0 {
+	if scheduled == 0 {
 		return p, fmt.Errorf("pool %d: shows a game page, but schedules no game", id)
 	}
 	p.LinkedGames = p.GameIDs

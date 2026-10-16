@@ -112,7 +112,7 @@ Where UltiOrganizer shows something only indirectly, the archive notes how it wa
 - pool type is read from how the pool page renders, and a pool's rules (winning score, caps, timeouts) aren't shown
 - home/visitor slot names (e.g. "Winner QF1") have no id anywhere, so they get synthetic negative ids
 - spirit comes from the `ext/spiritcsv.php` export when the site serves it: every submitted score with its comments, including games where only one team has submitted (the game page hides those until both have). Where a site locks the export, it falls back to the game pages, which only show two-sided scores and show comments only if the season enables it
-- a game with a result but no scoresheet (e.g. a forfeit) has no id anywhere, so archiving stops with an error rather than leave it out. A whole division scored that way (e.g. WUC 2024's Guts) can be left out with `-skip-divisions`
+- a game with no scoresheet (nobody took stats, so it has just its result and any spirit, or it was a forfeit or never played) isn't linked, so has no id anywhere, and gets a synthetic negative id in schedule order. It has no goals, played or events. A whole division scored that way (e.g. WUC 2024's Guts) can still be left out with `-skip-divisions`
 - where team cards error (every team on some 2023 sites), the roster comes from the team's scoreboard (`view=scorestatus`), which runs the same roster query, with shirt numbers from the players CSV. Those teams have no profile, club id or team links
 - a round-robin pool with exactly one game redirects to that game's page, so its name comes from the left menu and it has no standings
 - publish only includes spirit comments when the server showed them, read from whether game pages have a comments row

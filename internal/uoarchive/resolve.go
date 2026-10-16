@@ -54,8 +54,8 @@ const reservationTimeLayout = "2.1.2006 15:04"
 
 const archiveTimeLayout = "2006-01-02 15:04:05"
 
-// allowUnlinked leaves scheduled games with no game id out instead of failing, for
-// enrich, whose Live! archive already has them
+// allowUnlinked leaves scheduled games with no game id out instead of giving them
+// synthetic ids, for enrich, whose Live! archive already has them
 func resolve(snap *uoclient.Snapshot, host, basePath string, allowUnlinked bool) (*rows, error) {
 	r := &rows{}
 	if err := r.resolveReservations(snap); err != nil {

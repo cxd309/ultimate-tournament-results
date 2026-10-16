@@ -298,8 +298,11 @@ func TestSingleGamePool(t *testing.T) {
 	game := parse(t, `<div class='content'><h1>France - Spain&nbsp;&nbsp;&nbsp;&nbsp;11 - 13</h1>
 <p><a href='?view=gamecard&amp;team1=1&amp;team2=2'>Game history</a></p><h2>Game statistics</h2></div>`)
 	pool := parse(t, `<div class='content'><h2>Mixed, Pool A</h2><table><tr><td><a href='?view=gameplay&amp;game=36'>Game play</a></td></tr></table></div>`)
-	if !isGamePage(game) || isGamePage(pool) {
-		t.Errorf("isGamePage: game %v, pool %v", isGamePage(game), isGamePage(pool))
+	notFedIn := parse(t, `<div class='content'><h1>Freespeed - Cotarica Grandes&nbsp;&nbsp;&nbsp;&nbsp;8 - 14</h1><h2>Not fed in</h2></div>`)
+	unplayed := parse(t, `<div class='content'><h2>Mixed, Pool B</h2><table><tr><td><a href='?view=gamecard&amp;team1=1105&amp;team2=1098'>Game history</a></td></tr></table></div>`)
+	if !isGamePage(game) || isGamePage(pool) || !isGamePage(notFedIn) || isGamePage(unplayed) {
+		t.Errorf("isGamePage: game %v, pool %v, not fed in %v, pool with unplayed games %v",
+			isGamePage(game), isGamePage(pool), isGamePage(notFedIn), isGamePage(unplayed))
 	}
 
 	id := func(n int64) *int64 { return &n }
@@ -320,5 +323,11 @@ func TestSingleGamePool(t *testing.T) {
 	snap.Schedule = append(snap.Schedule, ScheduledGame{GameID: id(9), PoolID: 1})
 	if _, err := singleGamePool(snap, 1); err == nil {
 		t.Error("two games accepted")
+	}
+
+	snap.Menu.Divisions[0].Pools = append(snap.Menu.Divisions[0].Pools, MenuPool{PoolID: 3, Name: "PPool G"})
+	snap.Schedule = append(snap.Schedule, ScheduledGame{PoolID: 3})
+	if p, err := singleGamePool(snap, 3); err != nil || len(p.GameIDs) != 0 || len(p.LinkedGames) != 0 {
+		t.Errorf("unlinked single game: %+v, %v; want a pool with no linked games", p, err)
 	}
 }
