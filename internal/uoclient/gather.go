@@ -138,8 +138,8 @@ func (c *Client) Gather(ctx context.Context, seasonID string) (*Snapshot, error)
 	if snap.PlayersCSV, err = c.getCSV(ctx, "playerscsv"); err != nil {
 		return nil, fmt.Errorf("players csv: %w", err)
 	}
-	switch snap.SpiritCSV, err = c.getCSV(ctx, "spiritcsv"); {
-	case errors.Is(err, errNotCSV):
+	switch snap.SpiritCSV, err = c.SpiritCSV(ctx); {
+	case errors.Is(err, ErrNotCSV):
 		fmt.Println("  spirit export is locked, spirit taken from game pages (both-submitted only, comments only where shown)")
 	case err != nil:
 		return nil, fmt.Errorf("spirit csv: %w", err)

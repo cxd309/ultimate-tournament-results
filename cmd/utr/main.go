@@ -13,6 +13,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/cxd309/ultimate-tournament-results/internal/enrich"
 	"github.com/cxd309/ultimate-tournament-results/internal/livearchive"
 	"github.com/cxd309/ultimate-tournament-results/internal/liveversion"
 )
@@ -26,11 +27,11 @@ func main() {
 
 func run() error {
 	versionKey := flag.String("version", "", "source version to target, a Live! by BULA spec version or uo_01 for a classic UltiOrganizer site, one of: "+strings.Join(liveversion.Keys(), ", ")+" (required)")
-	mode := flag.String("mode", "all", "what to run: archive, publish, or all")
-	host := flag.String("host", "", "deployment host, e.g. wbuc.wfdf.sport (required for archive)")
-	basePath := flag.String("base-path", "", "Live!: static cache base path (default /live/data/); uo_01: the UltiOrganizer install's path, e.g. /wmuc/ (required)")
+	mode := flag.String("mode", "all", "what to run: archive, publish, all, or enrich (fill an existing Live! archive's spirit in from its UltiOrganizer site)")
+	host := flag.String("host", "", "deployment host, e.g. wbuc.wfdf.sport (required for archive); enrich: the UltiOrganizer site's host (default: the archive's own)")
+	basePath := flag.String("base-path", "", "Live!: static cache base path (default /live/data/); uo_01: the UltiOrganizer install's path, e.g. /wmuc/ (required); enrich: the UltiOrganizer install's path (default: the archive's base path less live/data/)")
 	slug := flag.String("slug", "", "archive filename slug (default: the season id reported by the heartbeat, lowercased)")
-	dbPath := flag.String("db", "", "sqlite archive path: written by archive (default data/<slug>.db; must not exist), read by publish (must exist)")
+	dbPath := flag.String("db", "", "sqlite archive path: written by archive (default data/<slug>.db; must not exist), read by publish and updated by enrich (must exist)")
 	outDir := flag.String("out", "docs/archive/", "directory to render published JSON into")
 	seasonID := flag.String("season-id", "", "override the season id instead of discovering it from the heartbeat (legacy deployments only); uo_01: the season to archive, needed when the site hosts more than one")
 	cacheDir := flag.String("cache", "", "uo_01 only: directory to keep fetched pages in and reuse on a re-run, e.g. after a failed archive")
@@ -42,6 +43,8 @@ func run() error {
 		return fmt.Errorf("-version is required, one of: %s", strings.Join(liveversion.Keys(), ", "))
 	}
 
+	// enrich defaults its source from the archive, not the version
+	src := enrich.Source{Host: *host, BasePath: *basePath, SeasonID: *seasonID}
 	if *basePath == "" {
 		*basePath = v.DefaultBasePath
 	}
@@ -82,8 +85,20 @@ func run() error {
 		}
 		return nil
 
+	case "enrich":
+		if v.Enrich == nil {
+			return fmt.Errorf("-version %s has nothing to enrich, its archive already takes spirit from the UltiOrganizer export", v.Key)
+		}
+		if err := requireExistingDB(*dbPath); err != nil {
+			return err
+		}
+		if err := v.Enrich(ctx, *dbPath, src); err != nil {
+			return fmt.Errorf("enrich: %w", err)
+		}
+		return nil
+
 	default:
-		return fmt.Errorf("-mode must be archive, publish, or all (got %q)", *mode)
+		return fmt.Errorf("-mode must be archive, publish, all, or enrich (got %q)", *mode)
 	}
 }
 
@@ -102,7 +117,7 @@ func requireSource(host, basePath string) error {
 // -- the inverse of archive's write-once check
 func requireExistingDB(dbPath string) error {
 	if dbPath == "" {
-		return fmt.Errorf("-db is required for -mode publish")
+		return fmt.Errorf("-db is required for -mode publish and enrich")
 	}
 	if _, err := os.Stat(dbPath); err != nil {
 		if os.IsNotExist(err) {

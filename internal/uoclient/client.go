@@ -137,7 +137,7 @@ func (c *Client) getCSV(ctx context.Context, name string) ([]map[string]string, 
 		return nil, fmt.Errorf("parse %s: %w", name, err)
 	}
 	if len(records) == 0 || !looksLikeHeader(records[0]) {
-		return nil, fmt.Errorf("%s: %w", name, errNotCSV)
+		return nil, fmt.Errorf("%s: %w", name, ErrNotCSV)
 	}
 	header := records[0]
 	rows := make([]map[string]string, 0, len(records)-1)
@@ -154,10 +154,10 @@ func (c *Client) getCSV(ctx context.Context, name string) ([]map[string]string, 
 	return rows, nil
 }
 
-// errNotCSV is getCSV's error for a response that isn't an export at all, e.g. the
+// ErrNotCSV is getCSV's error for a response that isn't an export at all, e.g. the
 // "You don't have permission to access this page" text a site serves for an export
 // it has locked down
-var errNotCSV = errors.New("response is not a CSV export")
+var ErrNotCSV = errors.New("response is not a CSV export")
 
 // looksLikeHeader is whether record is an export header: more than one column, all
 // non-empty column names
@@ -176,4 +176,11 @@ func looksLikeHeader(record []string) bool {
 // getXML fetches ext/{name}.php?{params} and returns the raw body
 func (c *Client) getXML(ctx context.Context, name string, params url.Values) ([]byte, error) {
 	return c.get(ctx, "ext/"+name+".php", params)
+}
+
+// SpiritCSV fetches ext/spiritcsv.php for SeasonID: every submitted spirit score with
+// its comments, keyed by the export's own header ("division", "day", "team_evaluated",
+// ...). ErrNotCSV when the site has locked the export down
+func (c *Client) SpiritCSV(ctx context.Context) ([]map[string]string, error) {
+	return c.getCSV(ctx, "spiritcsv")
 }
