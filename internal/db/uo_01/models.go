@@ -168,6 +168,10 @@ type SchedulingName struct {
 	Name         string `json:"name"`
 }
 
+type ServerSetting struct {
+	Showspiritcomments sql.NullInt64 `json:"showspiritcomments"`
+}
+
 type SpiritScore struct {
 	GameID   int64          `json:"game_id"`
 	TeamID   int64          `json:"team_id"`

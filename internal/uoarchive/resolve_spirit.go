@@ -122,3 +122,21 @@ func (r *rows) addSpirit(gameIdx map[int64]int, id int64, forHome bool, cats [5]
 	r.spiritScores = append(r.spiritScores, spiritScore(id, *team, cats, comments))
 	return nil
 }
+
+// showSpiritComments reads the server's ShowSpiritComments from the game pages: one
+// with both spirit scores has a "Spirit comments" row exactly when it's on. nil when
+// no page shows spirit at all
+func showSpiritComments(snap *uoclient.Snapshot) *bool {
+	var show *bool
+	for _, page := range snap.Games {
+		if page.Spirit == nil {
+			continue
+		}
+		shown := page.Spirit.HomeComments != nil
+		if show != nil && *show != shown {
+			return nil // can't happen with one server setting, so don't guess
+		}
+		show = &shown
+	}
+	return show
+}

@@ -10,6 +10,20 @@ import (
 	"database/sql"
 )
 
+const getServerSettings = `-- name: GetServerSettings :one
+SELECT
+    showspiritcomments
+FROM
+    server_settings
+`
+
+func (q *Queries) GetServerSettings(ctx context.Context) (sql.NullInt64, error) {
+	row := q.db.QueryRowContext(ctx, getServerSettings)
+	var showspiritcomments sql.NullInt64
+	err := row.Scan(&showspiritcomments)
+	return showspiritcomments, err
+}
+
 const insertClub = `-- name: InsertClub :exec
 INSERT INTO clubs (club_id, name)
     VALUES (?1, ?2)
@@ -162,6 +176,16 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		arg.Season,
 		arg.Date,
 	)
+	return err
+}
+
+const insertServerSettings = `-- name: InsertServerSettings :exec
+INSERT INTO server_settings (showspiritcomments)
+    VALUES (?1)
+`
+
+func (q *Queries) InsertServerSettings(ctx context.Context, showspiritcomments sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, insertServerSettings, showspiritcomments)
 	return err
 }
 

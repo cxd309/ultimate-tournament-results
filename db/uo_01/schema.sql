@@ -111,3 +111,12 @@ CREATE TABLE urls (
     mediaowner text -- varchar(100)
 );
 
+
+-- server settings, one row
+-- showspiritcomments is the server's ShowSpiritComments, which UltiOrganizer's game
+-- pages and the Live! API both follow: a game page with both spirit scores shows a
+-- "Spirit comments" row only when it's on. null when no game page shows spirit at
+-- all, so it can't be told; publish then leaves comments out, as it does when it's off
+CREATE TABLE server_settings (
+    showspiritcomments integer -- tinyint(1)
+);

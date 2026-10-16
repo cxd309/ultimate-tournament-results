@@ -39,6 +39,8 @@ type rows struct {
 	teamClubs    []uostore.TeamClub
 	teamProfiles []uostore.TeamProfile
 	urls         []uostore.URL
+
+	serverSettings uostore.ServerSettings
 }
 
 // reservationTimeLayout is the reservation page's DefTimeFormat, "d.m.Y H:i", or
@@ -71,6 +73,7 @@ func resolve(snap *uoclient.Snapshot, host, basePath string) (*rows, error) {
 	if err := r.resolveSpirit(snap); err != nil {
 		return nil, fmt.Errorf("spirit: %w", err)
 	}
+	r.serverSettings.ShowSpiritComments = showSpiritComments(snap)
 	r.resolveTeamPools(snap)
 	r.resolveGamePools(snap)
 	r.resolveMoveTeams(snap)

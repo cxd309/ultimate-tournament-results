@@ -18,6 +18,9 @@ func write(ctx context.Context, tx *sql.Tx, r *rows) error {
 	if err := s.InsertTournament(ctx, r.tournament); err != nil {
 		return fmt.Errorf("tournament: %w", err)
 	}
+	if err := uo.InsertServerSettings(ctx, r.serverSettings); err != nil {
+		return fmt.Errorf("server settings: %w", err)
+	}
 	steps := []struct {
 		name string
 		run  func() error

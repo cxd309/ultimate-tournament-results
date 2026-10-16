@@ -111,3 +111,26 @@ func TestResolveSpirit(t *testing.T) {
 		t.Error("an export score disagreeing with the game page was accepted")
 	}
 }
+
+func TestShowSpiritComments(t *testing.T) {
+	text := ""
+	shown := uoclient.GamePage{Spirit: &uoclient.GameSpirit{HomeComments: &text, VisitorComments: &text}}
+	hidden := uoclient.GamePage{Spirit: &uoclient.GameSpirit{}}
+	none := uoclient.GamePage{}
+	cases := []struct {
+		name  string
+		games map[int64]uoclient.GamePage
+		want  *bool
+	}{
+		{"shown", map[int64]uoclient.GamePage{1: shown, 2: none}, new(true)},
+		{"hidden", map[int64]uoclient.GamePage{1: hidden, 2: none}, new(false)},
+		{"no spirit shown", map[int64]uoclient.GamePage{1: none}, nil},
+		{"mixed", map[int64]uoclient.GamePage{1: shown, 2: hidden}, nil},
+	}
+	for _, c := range cases {
+		got := showSpiritComments(&uoclient.Snapshot{Games: c.games})
+		if (got == nil) != (c.want == nil) || (got != nil && *got != *c.want) {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}

@@ -11,10 +11,11 @@ import (
 
 // Store is the uo_01 side of the archive for one tournament, backed by a single SQLite file.
 type Store struct {
-	q *dbgen.Queries
+	db dbgen.DBTX
+	q  *dbgen.Queries
 }
 
 // New wraps an already-open, schema-applied database connection.
 func New(db dbgen.DBTX) *Store {
-	return &Store{q: dbgen.New(db)}
+	return &Store{db: db, q: dbgen.New(db)}
 }
