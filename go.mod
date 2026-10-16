@@ -2,7 +2,10 @@ module github.com/cxd309/ultimate-tournament-results
 
 go 1.26.4
 
-require modernc.org/sqlite v1.57.0
+require (
+	golang.org/x/net v0.51.0
+	modernc.org/sqlite v1.57.0
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
